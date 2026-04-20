@@ -1,0 +1,118 @@
+{
+  "project_info": {
+    "project_number": "696491882997",
+    "project_id": "yau-app",
+    "storage_bucket": "yau-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:696491882997:android:f912e5b2eb656d9a13c8bc",
+        "android_client_info": {
+          "package_name": "com.example.yau_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "696491882997-mt236n0ernlkkdbf0epdrac6gv8kgdsb.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyABRlWiJAPkHMLiVUTlVyTtRTdXdqgEkg0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "696491882997-mt236n0ernlkkdbf0epdrac6gv8kgdsb.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "696491882997-l97fdjf6mff9miqrkatpch995qmpqvma.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.yauApp"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:696491882997:android:fe178ce959d1655f13c8bc",
+        "android_client_info": {
+          "package_name": "com.yauapp.com"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "696491882997-mt236n0ernlkkdbf0epdrac6gv8kgdsb.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyABRlWiJAPkHMLiVUTlVyTtRTdXdqgEkg0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "696491882997-mt236n0ernlkkdbf0epdrac6gv8kgdsb.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "696491882997-l97fdjf6mff9miqrkatpch995qmpqvma.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.yauApp"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:696491882997:android:af5e6d9f514c5fe213c8bc",
+        "android_client_info": {
+          "package_name": "com.yauapp.youth"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "696491882997-mt236n0ernlkkdbf0epdrac6gv8kgdsb.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyABRlWiJAPkHMLiVUTlVyTtRTdXdqgEkg0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "696491882997-mt236n0ernlkkdbf0epdrac6gv8kgdsb.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "696491882997-l97fdjf6mff9miqrkatpch995qmpqvma.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.yauApp"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
