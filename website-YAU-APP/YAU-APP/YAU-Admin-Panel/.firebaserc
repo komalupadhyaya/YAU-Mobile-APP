@@ -1,0 +1,8 @@
+{
+  "projects": {
+    "default": "yau-app",
+    "staging": "yau-app-test"
+  },
+  "targets": {},
+  "etags": {}
+}
