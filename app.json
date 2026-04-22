@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "extra": {
       "eas": {
-        "projectId": "89148aed-960d-48f5-8a67-ccb52aa8b9da",
+        "projectId": "dd35e184-c545-49be-853d-cf7223e7be47",
         "owner": "your-username"
       },
       "note": "Replace YOUR_PROJECT_ID with actual EAS project ID from https://expo.dev",
@@ -18,7 +18,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.example.yauapp",
+      "bundleIdentifier": "com.yauapp.mobile",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }

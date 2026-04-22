@@ -21,10 +21,10 @@ export default function MessagesScreen() {
       return;
     }
 
-    // Use student's grade for filtering (per confirmed backend schema)
-    const userGrade = user.students[0]?.grade;
+    // Use student's grade_band for filtering (standardized mapping)
+    const userGradeBand = user.students[0]?.grade_band;
     
-    const unsubscribe = subscribeToMessages([], user.sport, user.location, userGrade, (fetchedMessages: AdminPost[]) => {
+    const unsubscribe = subscribeToMessages([], user.sport, user.location, userGradeBand, (fetchedMessages: AdminPost[]) => {
       setMessages(fetchedMessages);
       setLoading(false);
     });

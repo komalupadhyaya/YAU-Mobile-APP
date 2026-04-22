@@ -40,13 +40,19 @@ export default function ScheduleScreen() {
           }
         }
         
-        // Filter by ageGroups (student's grade) - only if user has students
+        // Filter by ageGroups (student's grade band) - only if user has students
         if (user?.students && user.students.length > 0 && schedule.ageGroups && schedule.ageGroups.length > 0) {
-          const studentGrade = user.students[0]?.grade;
-          if (__DEV__) console.log('[Schedule Screen] Student grade:', studentGrade, 'Schedule ageGroups:', schedule.ageGroups);
-          // Check if student's grade is in schedule's ageGroups array
-          if (studentGrade && !schedule.ageGroups.includes(studentGrade)) {
-            if (__DEV__) console.log('[Schedule Screen] Skipped - grade not in ageGroups');
+          const studentGradeBand = user.students[0]?.grade_band;
+          if (__DEV__) console.log('[Schedule Screen] Student grade band:', studentGradeBand, 'Schedule ageGroups:', schedule.ageGroups);
+          
+          // Check if student's grade band is in schedule's ageGroups array
+          // Note: schedule.ageGroups might contain "Band1" or "Band 1", so we normalize
+          const matchesGrade = studentGradeBand && schedule.ageGroups.some(ag => 
+            ag.replace(/\s+/g, '').toLowerCase() === studentGradeBand.replace(/\s+/g, '').toLowerCase()
+          );
+
+          if (!matchesGrade) {
+            if (__DEV__) console.log('[Schedule Screen] Skipped - grade band not in ageGroups');
             return false;
           }
         }

@@ -1,3 +1,5 @@
+import '../src/services/firebase'; // IMPORTANT: Initialize Firebase before anything else
+
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';

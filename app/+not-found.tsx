@@ -8,7 +8,7 @@ export default function NotFoundScreen() {
     <View className="flex-1 bg-gray-50 items-center justify-center p-6" style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}>
       <Text className="text-gray-900 text-2xl font-bold mb-2">Page Not Found</Text>
       <Text className="text-gray-500 text-center mb-6">
-        The page you're looking for doesn't exist.
+        The page you&apos;re looking for doesn&apos;t exist.
       </Text>
       <TouchableOpacity
         className="bg-blue-900 px-6 py-3 rounded-lg"

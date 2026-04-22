@@ -73,9 +73,9 @@ const getAgeGroup = (grade: string): string => {
   const gradeMap: { [key: string]: string } = {
     'Pre-K': 'Band 1',
     'Kindergarten': 'Band 1',
-    '1st Grade': 'Band 2',
+    '1st Grade': 'Band 1',
     '2nd Grade': 'Band 2',
-    '3rd Grade': 'Band 3',
+    '3rd Grade': 'Band 2',
     '4th Grade': 'Band 3',
     '5th Grade': 'Band 3',
     '6th Grade': 'Band 4',

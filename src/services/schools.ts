@@ -12,12 +12,11 @@ export interface School {
   isActive: boolean;
 }
 
-// Fetch schools from Firestore app_schools collection (one-time fetch)
+// Fetch locations from Firestore locations collection (one-time fetch)
 export async function fetchSchools(): Promise<School[]> {
   try {
-    const schoolsRef = collection(db, 'app_schools');
-    const q = query(schoolsRef, where('isActive', '==', true));
-    const snapshot = await getDocs(q);
+    const locationsRef = collection(db, 'locations');
+    const snapshot = await getDocs(locationsRef);
     
     const schools: School[] = [];
     snapshot.forEach((doc) => {
@@ -25,9 +24,9 @@ export async function fetchSchools(): Promise<School[]> {
       schools.push({
         id: doc.id,
         name: data.name || '',
-        schoolKey: data.schoolKey || data.name || '',
-        location: data.location || data.name || '',
-        sports: data.sports || [],
+        schoolKey: data.name || '',
+        location: data.city || data.address || data.location || '',
+        sports: data.sports || ['Basketball', 'Volleyball'], // Default sports if not specified
         isActive: data.isActive !== false
       });
     });
@@ -37,27 +36,26 @@ export async function fetchSchools(): Promise<School[]> {
     
     return schools;
   } catch (error) {
-    if (DEV) console.error('[Schools Firestore] Error fetching schools:', error);
+    if (DEV) console.error('[Schools Firestore] Error fetching locations:', error);
     return [];
   }
 }
 
-// Subscribe to schools from Firestore app_schools collection with real-time listener
+// Subscribe to locations from Firestore locations collection with real-time listener
 export function subscribeToSchools(callback: (schools: School[]) => void): () => void {
   try {
-    const schoolsRef = collection(db, 'app_schools');
-    const q = query(schoolsRef, where('isActive', '==', true));
+    const locationsRef = collection(db, 'locations');
     
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubscribe = onSnapshot(locationsRef, (snapshot) => {
       const schools: School[] = [];
       snapshot.forEach((doc) => {
         const data = doc.data();
         schools.push({
           id: doc.id,
           name: data.name || '',
-          schoolKey: data.schoolKey || data.name || '',
-          location: data.location || data.name || '',
-          sports: data.sports || [],
+          schoolKey: data.name || '',
+          location: data.city || data.address || data.location || '',
+          sports: data.sports || ['Basketball', 'Volleyball'],
           isActive: data.isActive !== false
         });
       });

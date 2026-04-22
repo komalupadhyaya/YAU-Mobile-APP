@@ -1,7 +1,6 @@
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { Member, Student } from '../types';
 import { generateGroupId, getGradeBand } from '../utils/group';
-import { db } from './firebase';
+import { apiService } from './api';
 
 export interface RegistrationData {
   parentFirstName: string;
@@ -24,26 +23,25 @@ export interface RegistrationData {
 }
 
 function calculateAgeGroup(grade: string): string {
-  const gradeNum = parseInt(grade);
-  if (isNaN(gradeNum)) {
-    // Handle K, 1st, 2nd, etc.
-    const gradeLower = grade.toLowerCase();
-    if (gradeLower.includes('k') || gradeLower.includes('kindergarten')) return 'Band 1';
-    if (gradeLower.includes('1st') || gradeLower === '1') return 'Band 1';
-    if (gradeLower.includes('2nd') || gradeLower === '2') return 'Band 2';
-    if (gradeLower.includes('3rd') || gradeLower === '3') return 'Band 2';
-    if (gradeLower.includes('4th') || gradeLower === '4') return 'Band 3';
-    if (gradeLower.includes('5th') || gradeLower === '5') return 'Band 3';
-    if (gradeLower.includes('6th') || gradeLower === '6') return 'Band 4';
-    if (gradeLower.includes('7th') || gradeLower === '7') return 'Band 4';
-    if (gradeLower.includes('8th') || gradeLower === '8') return 'Band 4';
-    return 'Band 1'; // Default
+  const gradeLower = grade.toLowerCase();
+  if (gradeLower.includes('k') || gradeLower.includes('kindergarten') || gradeLower.includes('pre-k')) return 'Band 1';
+  
+  // Try to extract numeric grade
+  const gradeNum = parseInt(grade.replace(/\D/g, ''));
+  if (!isNaN(gradeNum)) {
+    if (gradeNum <= 1) return 'Band 1';
+    if (gradeNum <= 3) return 'Band 2';
+    if (gradeNum <= 5) return 'Band 3';
+    if (gradeNum <= 8) return 'Band 4';
   }
   
-  if (gradeNum <= 1) return 'Band 1';
-  if (gradeNum <= 3) return 'Band 2';
-  if (gradeNum <= 5) return 'Band 3';
-  return 'Band 4';
+  // Fallback string matching
+  if (gradeLower.includes('1st')) return 'Band 1';
+  if (gradeLower.includes('2nd') || gradeLower.includes('3rd')) return 'Band 2';
+  if (gradeLower.includes('4th') || gradeLower.includes('5th')) return 'Band 3';
+  if (gradeLower.includes('6th') || gradeLower.includes('7th') || gradeLower.includes('8th')) return 'Band 4';
+  
+  return 'Band 1'; // Default
 }
 
 function formatPhoneNumber(phone: string): string {
@@ -149,13 +147,15 @@ export async function registerMember(data: RegistrationData): Promise<{ success:
       memberData.expoPushTokens = data.expoPushTokens;
     }
     
-    // 3. Call addDoc with serverTimestamp
-    const docRef = await addDoc(collection(db, 'members'), {
-      ...memberData,
-      createdAt: serverTimestamp()
-    });
+    // 3. Call centralized API to create member
+    // This handles Auth, Firestore, Rosters, Chats, and CC
+    const response = await apiService.registerMember(memberData);
     
-    return { success: true, memberId: docRef.id };
+    if (!response.success && !response.memberId) {
+      throw new Error(response.error || 'API Registration failed');
+    }
+    
+    return { success: true, memberId: response.data?.memberId || response.memberId };
   } catch (error) {
     if (__DEV__) console.error('Registration error:', error);
     return { 

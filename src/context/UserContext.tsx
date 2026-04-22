@@ -1,9 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, updateDoc } from 'firebase/firestore';
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
-import { auth, db } from '../services/firebase';
+import { auth } from '../services/firebase';
+import { apiService } from '../services/api';
 import { registerForPushNotificationsAsync } from '../services/notifications';
 import { Member } from '../types';
 
@@ -26,8 +26,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     loadUserData();
     setupAuthListener();
-    registerPushToken();
   }, []);
+
+  useEffect(() => {
+    if (user && !loading) {
+      registerPushToken();
+    }
+  }, [user, loading]);
 
   const registerPushToken = async () => {
     try {
@@ -53,16 +58,16 @@ export function UserProvider({ children }: { children: ReactNode }) {
           // Update AsyncStorage
           await updateUser(updatedUser);
           
-          // Sync to Firestore if user has a document ID
+          // Sync to API if user has an ID
           if (user.id) {
             try {
-              const memberRef = doc(db, 'members', user.id);
-              await updateDoc(memberRef, {
+              await apiService.updateMember(user.id, {
                 expoPushTokens: updatedTokens
               });
-            } catch (firestoreError) {
-              // Firestore update failed, but AsyncStorage update succeeded
+            } catch (apiError) {
+              // API update failed, but AsyncStorage update succeeded
               // This is acceptable as the token is still stored locally
+              console.warn('[UserContext] Failed to sync push tokens to API:', apiError);
             }
           }
         }
