@@ -245,13 +245,16 @@ export default function LoginScreen() {
               </TouchableOpacity>
 
               <View style={styles.signupPrompt}>
-
-                <Link href="/auth/register" asChild>
-                  <TouchableOpacity style={styles.signupBtn}>
-                    <Text style={styles.noAccountText}>Don't have an Account ?</Text>
-                    <Text style={styles.signupBtnText}>Sign Up</Text>
-                  </TouchableOpacity>
-                </Link>
+                <TouchableOpacity
+                  style={styles.signupBtn}
+                  onPress={() => {
+                    console.log('Navigating to register...');
+                    router.push('/auth/register');
+                  }}
+                >
+                  <Text style={styles.noAccountText}>Don't have an Account ?</Text>
+                  <Text style={styles.signupBtnText}>Sign Up</Text>
+                </TouchableOpacity>
               </View>
             </View>
           </KeyboardAvoidingView>
@@ -325,7 +328,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 24,
     paddingTop: 30,
-    paddingBottom: 50,
+    paddingBottom: 80,
   },
   formCard: {
     width: '100%',

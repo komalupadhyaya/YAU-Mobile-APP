@@ -79,6 +79,8 @@ export default function RegisterScreen() {
   // Consent/T&C
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [smsConsent, setSmsConsent] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Modals
   const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
@@ -169,7 +171,7 @@ export default function RegisterScreen() {
     <View style={styles.container}>
       <LinearGradient colors={['#001A3D', '#002C61']} style={styles.gradientBg}>
         <View style={[styles.headerSection, { paddingTop: insets.top + 40 }]}>
-          <Image source={require('../../assets/images/logo1.png')} style={styles.logoIcon} resizeMode="contain" />
+          <Image source={require('../../assets/favicon.png')} style={styles.logoIcon} resizeMode="contain" />
           <Text style={styles.yauHeaderText}>YOUTH ATHLETE UNIVERSITY</Text>
           <Text style={styles.mainTitle}>Create Your Account</Text>
           <Text style={styles.subTitle}>Let’s get started with your information</Text>
@@ -180,9 +182,13 @@ export default function RegisterScreen() {
         {/* Progress Indicator */}
         <View style={styles.progressWrapper}>
           <View style={styles.stepIndicator}>
-            <View style={[styles.stepCircle, step >= 1 && styles.stepCircleActive]}><Text style={[styles.stepNum, step >= 1 && styles.stepNumActive]}>01</Text></View>
+            <View style={[styles.stepCircle, step >= 1 && styles.stepCircleActive]}>
+              <Text style={[styles.stepNum, step >= 1 && styles.stepNumActive]}>01</Text>
+            </View>
             <View style={[styles.stepLine, step >= 2 && styles.stepLineActive]} />
-            <View style={[styles.stepCircle, step >= 2 && styles.stepCircleActive]}><Text style={[styles.stepNum, step >= 2 && styles.stepNumActive]}>02</Text></View>
+            <View style={[styles.stepCircle, step >= 2 && styles.stepCircleActive]}>
+              <Text style={[styles.stepNum, step >= 2 && styles.stepNumActive]}>02</Text>
+            </View>
           </View>
           <Text style={styles.stepText}>STEP {step} OF 2</Text>
         </View>
@@ -209,16 +215,30 @@ export default function RegisterScreen() {
 
                 <Text style={styles.inputLabel}>Phone Number</Text>
                 <View style={styles.inputWrapper}>
-                  <Text style={{ marginRight: 8 }}>🇺🇸</Text>
+                  <View style={styles.phonePrefix}>
+                    <Text style={{ fontSize: 18 }}>🇺🇸</Text>
+                    <MaterialIcons name="keyboard-arrow-down" size={18} color="#6B7280" />
+                  </View>
+                  <View style={styles.phoneDivider} />
                   <TextInput style={styles.input} placeholder="(333) 123 - 4567" value={formatPhoneDisplay(phoneDigits)} onChangeText={handlePhoneChange} keyboardType="phone-pad" />
                 </View>
 
                 <Text style={styles.inputLabel}>Create Password</Text>
-                <View style={styles.inputWrapper}><TextInput style={styles.input} placeholder="*******" secureTextEntry value={password} onChangeText={setPassword} /></View>
+                <View style={styles.inputWrapper}>
+                  <TextInput style={styles.input} placeholder="*******" secureTextEntry={!showPassword} value={password} onChangeText={setPassword} />
+                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeBtn}>
+                    <MaterialIcons name={showPassword ? 'visibility' : 'visibility-off'} size={20} color="#9CA3AF" />
+                  </TouchableOpacity>
+                </View>
                 <Text style={styles.hintText}>Must be at least 8 characters</Text>
 
                 <Text style={styles.inputLabel}>Confirm Password</Text>
-                <View style={styles.inputWrapper}><TextInput style={styles.input} placeholder="*******" secureTextEntry value={confirmPassword} onChangeText={setConfirmPassword} /></View>
+                <View style={styles.inputWrapper}>
+                  <TextInput style={styles.input} placeholder="*******" secureTextEntry={!showConfirmPassword} value={confirmPassword} onChangeText={setConfirmPassword} />
+                  <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={styles.eyeBtn}>
+                    <MaterialIcons name={showConfirmPassword ? 'visibility' : 'visibility-off'} size={20} color="#9CA3AF" />
+                  </TouchableOpacity>
+                </View>
 
                 <TouchableOpacity style={styles.primaryBtn} onPress={() => setStep(2)}>
                   <Text style={styles.primaryBtnText}>Continue</Text>
@@ -241,12 +261,14 @@ export default function RegisterScreen() {
 
                     <Text style={styles.inputLabel}>School</Text>
                     <TouchableOpacity style={styles.inputWrapper} onPress={() => { setModalStudentIndex(idx); setIsSchoolModalOpen(true); }}>
-                      <Text style={{ color: student.schoolName ? '#111827' : '#9CA3AF' }}>{student.schoolName || 'Select School'}</Text>
+                      <Text style={[styles.inputValue, !student.schoolName && styles.placeholderText]}>{student.schoolName || 'Select School'}</Text>
+                      <MaterialIcons name="keyboard-arrow-down" size={20} color="#9CA3AF" />
                     </TouchableOpacity>
 
                     <Text style={styles.inputLabel}>Grade Band</Text>
                     <TouchableOpacity style={styles.inputWrapper} onPress={() => { setModalStudentIndex(idx); setIsGradeModalOpen(true); }}>
-                      <Text style={{ color: student.gradeBand ? '#111827' : '#9CA3AF' }}>{student.gradeBand || 'Select Grade Band'}</Text>
+                      <Text style={[styles.inputValue, !student.gradeBand && styles.placeholderText]}>{student.gradeBand || 'Select Grade Band'}</Text>
+                      <MaterialIcons name="keyboard-arrow-down" size={20} color="#9CA3AF" />
                     </TouchableOpacity>
                   </View>
                 ))}
@@ -278,7 +300,10 @@ export default function RegisterScreen() {
                 >
                   {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>Create Account</Text>}
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.backBtn} onPress={() => setStep(1)}><Text style={styles.backBtnText}>Back</Text></TouchableOpacity>
+                <TouchableOpacity style={styles.backBtn} onPress={() => setStep(1)}>
+                  <MaterialIcons name="arrow-back" size={20} color="#6B7280" />
+                  <Text style={styles.backBtnText}>Back</Text>
+                </TouchableOpacity>
               </View>
             )}
 
@@ -320,33 +345,38 @@ export default function RegisterScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
-  gradientBg: { height: height * 0.4, width: width, position: 'absolute', top: 0 },
+  gradientBg: { height: height * 0.45, width: width, position: 'absolute', top: 0 },
   headerSection: { alignItems: 'center', paddingHorizontal: 30 },
-  logoIcon: { width: 40, height: 40, marginBottom: 8 },
-  yauHeaderText: { color: '#FFF', fontSize: 12, fontWeight: '800', letterSpacing: 1 },
-  mainTitle: { color: '#FFF', fontSize: 28, fontWeight: '900', marginTop: 10 },
-  subTitle: { color: 'rgba(255,255,255,0.8)', fontSize: 13, marginTop: 4 },
-  cardContainer: { flex: 1, marginTop: height * 0.28, borderTopLeftRadius: 30, borderTopRightRadius: 30, backgroundColor: '#FFFFFF', elevation: 20 },
+  logoIcon: { width: 55, height: 55, marginBottom: 10 },
+  yauHeaderText: { color: '#FFF', fontSize: 14, fontWeight: '800', letterSpacing: 1.5 },
+  mainTitle: { color: '#FFF', fontSize: 32, fontWeight: '900', marginTop: 12, textAlign: 'center' },
+  subTitle: { color: 'rgba(255,255,255,0.85)', fontSize: 14, marginTop: 6, textAlign: 'center' },
+  cardContainer: { flex: 1, marginTop: height * 0.38, borderTopLeftRadius: 30, borderTopRightRadius: 30, backgroundColor: '#FFFFFF', elevation: 20, shadowColor: '#000', shadowOffset: { width: 0, height: -10 }, shadowOpacity: 0.1, shadowRadius: 20 },
   progressWrapper: { alignItems: 'center', marginTop: 20 },
   stepIndicator: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-  stepCircle: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#FFFFFF', borderWidth: 1.5, borderColor: '#E5E7EB', justifyContent: 'center', alignItems: 'center' },
+  stepCircle: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#FFFFFF', borderWidth: 2, borderColor: '#E5E7EB', justifyContent: 'center', alignItems: 'center' },
   stepCircleActive: { backgroundColor: '#0047AB', borderColor: '#0047AB' },
-  stepNum: { color: '#9CA3AF', fontSize: 13, fontWeight: '700' },
+  stepNum: { color: '#9CA3AF', fontSize: 14, fontWeight: '800' },
   stepNumActive: { color: '#FFFFFF' },
-  stepLine: { width: 40, height: 2, backgroundColor: '#E5E7EB', marginHorizontal: 8 },
+  stepLine: { width: 50, height: 2, backgroundColor: '#E5E7EB', marginHorizontal: 0 },
   stepLineActive: { backgroundColor: '#0047AB' },
-  stepText: { fontSize: 12, fontWeight: '700', color: '#0047AB', marginTop: 8 },
-  scrollContent: { paddingHorizontal: 24, paddingTop: 20, paddingBottom: 40 },
+  stepText: { fontSize: 13, fontWeight: '800', color: '#0047AB', marginTop: 12, textTransform: 'uppercase' },
+  scrollContent: { paddingHorizontal: 24, paddingTop: 20, paddingBottom: 60 },
   sectionTitle: { fontSize: 22, fontWeight: '900', color: '#111827', textAlign: 'center', marginBottom: 20 },
   row: { flexDirection: 'row', gap: 12, marginBottom: 12 },
-  inputLabel: { fontSize: 12, color: '#6B7280', fontWeight: '700', marginBottom: 6, marginTop: 12 },
-  inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderWidth: 1.5, borderColor: '#F3F4F6', borderRadius: 12, paddingHorizontal: 12, height: 50 },
-  input: { flex: 1, fontSize: 14, color: '#111827', fontWeight: '500' },
+  inputLabel: { fontSize: 13, color: '#6B7280', fontWeight: '700', marginBottom: 8, marginTop: 16, marginLeft: 4 },
+  inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderWidth: 1.5, borderColor: '#F3F4F6', borderRadius: 16, paddingHorizontal: 16, height: 58 },
+  input: { flex: 1, fontSize: 15, color: '#111827', fontWeight: '600' },
+  inputValue: { flex: 1, fontSize: 15, color: '#111827', fontWeight: '600' },
+  placeholderText: { color: '#9CA3AF' },
+  phonePrefix: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  phoneDivider: { width: 1, height: 24, backgroundColor: '#E5E7EB', marginHorizontal: 12 },
+  eyeBtn: { padding: 8 },
   hintText: { fontSize: 11, color: '#9CA3AF', marginTop: 4 },
-  primaryBtn: { backgroundColor: '#002C61', borderRadius: 12, height: 50, alignItems: 'center', justifyContent: 'center', marginTop: 30 },
+  primaryBtn: { backgroundColor: '#002C61', borderRadius: 16, height: 58, alignItems: 'center', justifyContent: 'center', marginTop: 30, shadowColor: '#002C61', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8 },
   primaryBtnText: { color: '#FFF', fontSize: 16, fontWeight: '800' },
-  backBtn: { alignItems: 'center', marginTop: 16 },
-  backBtnText: { color: '#6B7280', fontWeight: '700' },
+  backBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 24, gap: 8 },
+  backBtnText: { color: '#6B7280', fontSize: 15, fontWeight: '700' },
   chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
   chip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1.5, borderColor: '#F3F4F6' },
   chipSel: { borderColor: '#0047AB', backgroundColor: '#EFF6FF' },
@@ -356,17 +386,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 12,
+    height: 58,
+    borderRadius: 16,
     borderWidth: 1.5,
     borderColor: '#0047AB',
-    marginTop: 10,
+    marginTop: 16,
     backgroundColor: '#F0F7FF',
   },
   addChildText: {
     color: '#0047AB',
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '800',
     marginLeft: 8,
   },
   termsRow: {
@@ -376,15 +406,16 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   checkbox: {
-    width: 20,
-    height: 20,
+    width: 22,
+    height: 22,
     borderRadius: 6,
     borderWidth: 1.5,
     borderColor: '#D1D5DB',
-    marginRight: 10,
+    marginRight: 12,
     marginTop: 2,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#FFFFFF',
   },
   checkboxChecked: {
     backgroundColor: '#0047AB',
