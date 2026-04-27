@@ -7,6 +7,8 @@ import { Button } from './ui/Button';
 import { Card } from './ui/Card';
 import { Input } from './ui/Input';
 import { Select } from './ui/Select';
+import { coachService } from '../lib/api';
+import toast from 'react-hot-toast';
 
 interface Student {
   firstName: string;
@@ -21,6 +23,8 @@ interface Student {
   uid?: string;
   uniformBottom?: string;
   uniformTop?: string;
+  coachId?: string;
+  coachName?: string;
 }
 
 interface Member {
@@ -55,6 +59,22 @@ const MembersList: React.FC = () => {
   const [editForm, setEditForm] = useState<Partial<Member>>({});
   const [saving, setSaving] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [coaches, setCoaches] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    const fetchCoaches = async () => {
+      try {
+        const data = await coachService.getCoaches();
+        setCoaches(data.map(c => ({
+          id: c.id,
+          name: `${c.firstName} ${c.lastName}`.trim() || 'Unnamed Coach'
+        })));
+      } catch (error) {
+        console.error('Error fetching coaches for assignment:', error);
+      }
+    };
+    fetchCoaches();
+  }, []);
 
   useEffect(() => {
     const q = query(collection(db, 'members'), orderBy('lastName', 'asc'));
@@ -104,24 +124,6 @@ const MembersList: React.FC = () => {
     setIsEditing(true);
   };
 
-  const handleUpdate = async () => {
-    if (!selectedMember) return;
-    setSaving(true);
-    try {
-      const memberRef = doc(db, 'members', selectedMember.id);
-      await updateDoc(memberRef, {
-        ...editForm,
-        updatedAt: new Date()
-      });
-      setSelectedMember(null);
-      setIsEditing(false);
-    } catch (error) {
-      console.error('Error updating member:', error);
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const handleStudentFieldChange = (index: number, field: keyof Student, value: string) => {
     if (!editForm.students) return;
     const updatedStudents = [...editForm.students];
@@ -129,15 +131,55 @@ const MembersList: React.FC = () => {
     setEditForm({ ...editForm, students: updatedStudents });
   };
 
+  const handleUpdate = async () => {
+    if (!selectedMember || !editForm) return;
+
+    // Validation
+    if (!editForm.firstName?.trim() || !editForm.lastName?.trim() || !editForm.email?.trim()) {
+      toast.error('First Name, Last Name, and Email are required.');
+      return;
+    }
+
+    const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    if (!validateEmail(editForm.email.trim())) {
+      toast.error('Please enter a valid email address.');
+      return;
+    }
+
+    if (editForm.phone && editForm.phone.trim().length < 10) {
+      toast.error('Phone number should be at least 10 digits.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const memberRef = doc(db, 'members', selectedMember.id);
+      await updateDoc(memberRef, {
+        ...editForm,
+        updatedAt: new Date()
+      });
+      toast.success('Member record updated successfully.');
+      setSelectedMember(null);
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Error updating member:', error);
+      toast.error('Failed to update member record. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleDelete = async () => {
     if (!selectedMember) return;
     setSaving(true);
     try {
       await deleteDoc(doc(db, 'members', selectedMember.id));
+      toast.success('Member record permanently removed.');
       setSelectedMember(null);
       setIsDeleteConfirmOpen(false);
     } catch (error) {
       console.error('Error deleting member:', error);
+      toast.error('Failed to delete member. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -424,6 +466,19 @@ const MembersList: React.FC = () => {
                               onChange={e => handleStudentFieldChange(idx, 'uniformBottom', e.target.value)}
                               leftIcon={<Shirt size={16} />}
                             />
+                            <Select
+                              label="Assigned Coach"
+                              value={student.coachId || ''}
+                              onChange={e => {
+                                const coach = coaches.find(c => c.id === e.target.value);
+                                handleStudentFieldChange(idx, 'coachId', e.target.value);
+                                handleStudentFieldChange(idx, 'coachName', coach?.name || '');
+                              }}
+                              options={[
+                                { label: 'No Coach Assigned', value: '' },
+                                ...coaches.map(c => ({ label: c.name, value: c.id }))
+                              ]}
+                            />
                           </div>
                         </Card>
                       ))}
@@ -544,6 +599,13 @@ const MembersList: React.FC = () => {
                                     DOB: {student.dob || '--'}
                                   </span>
                                 </div>
+                                {student.coachName && (
+                                  <div className="mt-2 flex items-center">
+                                    <Badge variant="info" className="text-[9px] font-black uppercase py-0.5">
+                                      Coach: {student.coachName}
+                                    </Badge>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>

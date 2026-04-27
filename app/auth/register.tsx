@@ -1,4 +1,5 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, Modal, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
@@ -94,6 +95,8 @@ export default function RegisterScreen() {
   const [parentFirstName, setParentFirstName] = useState('');
   const [parentLastName, setParentLastName] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [phone, setPhone] = useState('');
   const [location, setLocation] = useState('');
   const [sport, setSport] = useState('');
@@ -240,12 +243,34 @@ export default function RegisterScreen() {
 
   const handleRegister = async () => {
     // Clear all errors
-    const updatedStudents = students.map(s => ({ ...s, errors: {} }));
-    setStudents(updatedStudents);
+    const clearedStudents = students.map(s => ({ ...s, errors: {} }));
+    setStudents(clearedStudents);
 
     // 1. Validate parent fields
-    if (!parentFirstName || !parentLastName || !email || !phone || !location) {
-      Alert.alert('Error', 'Please fill in all parent fields');
+    const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+    if (!parentFirstName.trim() || !parentLastName.trim() || !email.trim() || !password || !confirmPassword || !phone.trim() || !location.trim()) {
+      Alert.alert('Required Fields', 'Please fill in all parent information fields.');
+      return;
+    }
+
+    if (!validateEmail(email.trim())) {
+      Alert.alert('Invalid Email', 'Please enter a valid email address.');
+      return;
+    }
+
+    if (password.length < 6) {
+      Alert.alert('Weak Password', 'Password must be at least 6 characters long.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      Alert.alert('Password Mismatch', 'Passwords do not match. Please check and try again.');
+      return;
+    }
+
+    if (phone.trim().length < 10) {
+      Alert.alert('Invalid Phone', 'Please enter a valid phone number.');
       return;
     }
 
@@ -254,7 +279,17 @@ export default function RegisterScreen() {
     let firstErrorIndex = -1;
 
     const validatedStudents = students.map((student, index) => {
-      const errors: { grade?: string; school?: string; sport?: string } = {};
+      const errors: StudentForm['errors'] = {};
+
+      // Validate Names
+      if (!student.firstName.trim()) {
+        (errors as any).firstName = 'First name is required';
+        hasErrors = true;
+      }
+      if (!student.lastName.trim()) {
+        (errors as any).lastName = 'Last name is required';
+        hasErrors = true;
+      }
 
       // Validate grade
       if (!student.grade) {
@@ -262,7 +297,7 @@ export default function RegisterScreen() {
         hasErrors = true;
         if (firstErrorIndex === -1) firstErrorIndex = index;
       } else if (!GRADE_OPTIONS.includes(student.grade)) {
-        errors.grade = 'Please select a valid grade between Kindergarten and 8th Grade';
+        errors.grade = 'Invalid grade';
         hasErrors = true;
         if (firstErrorIndex === -1) firstErrorIndex = index;
       }
@@ -281,12 +316,18 @@ export default function RegisterScreen() {
         if (firstErrorIndex === -1) firstErrorIndex = index;
       }
 
+      // Validate DOB
+      if (!student.dob) {
+        (errors as any).dob = 'DOB is required';
+        hasErrors = true;
+      }
+
       return { ...student, errors };
     });
 
     if (hasErrors) {
       setStudents(validatedStudents);
-      Alert.alert('Error', 'Please fix the highlighted errors');
+      Alert.alert('Required Fields', 'Please fix the highlighted errors for the students.');
       return;
     }
 
@@ -307,7 +348,10 @@ export default function RegisterScreen() {
       const registrationData: RegistrationData = {
         parentFirstName,
         parentLastName,
+        firstName: parentFirstName,
+        lastName: parentLastName,
         email,
+        password,
         phone,
         location,
         sport: firstStudentSport,
@@ -351,7 +395,7 @@ export default function RegisterScreen() {
           }))
         };
         
-        setUser(memberData);
+        await setUser(memberData);
         
         Alert.alert(
           'Success',
@@ -397,197 +441,191 @@ export default function RegisterScreen() {
   };
 
   return (
-    <ScrollView 
-      className="flex-1 bg-gray-50 p-6" 
-      keyboardShouldPersistTaps="handled"
-      style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}
-    >
-      <View className="mb-8 mt-12 items-center">
-        <Image 
-          source={require('../../assets/images/icon.png')}
-          style={{ width: 80, height: 80, borderRadius: 16, marginBottom: 16 }}
-          resizeMode="cover"
-        />
-        <Text className="text-3xl font-bold text-blue-900 mb-2">Register</Text>
-        <Text className="text-gray-600 text-base text-center">Setup your Youth Athlete profile.</Text>
-      </View>
-
-      {/* Parent Information */}
-      <View className="bg-white p-4 rounded-2xl shadow-sm mb-6 border border-gray-100">
-        <Text className="text-lg font-semibold text-gray-800 mb-4">Parent Information</Text>
-        
-        <View className="flex-row gap-3 mb-4">
-          <View className="flex-1">
-            <AppInput
-              placeholder="First Name"
-              value={parentFirstName}
-              onChangeText={setParentFirstName}
-            />
-          </View>
-          <View className="flex-1">
-            <AppInput
-              placeholder="Last Name"
-              value={parentLastName}
-              onChangeText={setParentLastName}
-            />
-          </View>
-        </View>
-
-        <AppInput
-          placeholder="Email"
-          keyboardType="email-address"
-          autoCapitalize="none"
-          value={email}
-          onChangeText={setEmail}
-          className="mb-4"
-        />
-
-        <View className="bg-gray-50 p-4 mt-1 rounded-xl mb-4 border border-gray-200 flex-row items-center">
-          <TouchableOpacity 
-            onPress={() => setIsCountryModalVisible(true)}
-            className="flex-row items-center"
-          >
-            <Text className="text-gray-600 mr-1">{selectedCountry.flag}</Text>
-            <Text className="text-gray-600 mr-2">{selectedCountry.dialCode}</Text>
-            <Text className="text-gray-400">▼</Text>
-          </TouchableOpacity>
-          <View className="w-px h-6 bg-gray-300 mx-2" />
-          <AppInput
-            className="flex-1"
-            placeholder="Phone Number"
-            keyboardType="phone-pad"
-            value={phone}
-            onChangeText={setPhone}
+    <View style={{ flex: 1, backgroundColor: '#F0F4FF' }}>
+      <LinearGradient
+        colors={['#1565C0', '#1976D2', '#42A5F5']}
+        style={{ paddingHorizontal: 20, paddingTop: insets.top + 16, paddingBottom: 48, alignItems: 'center' }}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+          <Image
+            source={require('../../assets/images/icon.png')}
+            style={{ width: 44, height: 44, borderRadius: 8 }}
+            resizeMode="contain"
           />
+          <Text style={{ fontSize: 26, fontWeight: '900', color: '#FFFFFF', letterSpacing: 1 }}>YAU SPORTS</Text>
         </View>
 
-        {/* Location (manual entry) */}
-        <AppInput
-          placeholder="Location"
-          value={location}
-          onChangeText={setLocation}
-        />
-      </View>
+        <Text style={{ fontSize: 28, fontWeight: '800', color: '#FFFFFF', marginBottom: 4 }}>Register!</Text>
+        <Text style={{ fontSize: 15, color: 'rgba(255,255,255,0.8)', marginBottom: 16 }}>Create a new account</Text>
+        
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <Text style={{ fontSize: 40 }}>🏟️</Text>
+          <Text style={{ fontSize: 40 }}>🥇</Text>
+        </View>
+      </LinearGradient>
 
-      {/* Students Section */}
-      <View className="bg-white p-4 rounded-2xl shadow-sm mb-6 border border-gray-100">
-        <View className="flex-row justify-between items-center mb-4">
-          <Text className="text-lg font-semibold text-gray-800">Student Information</Text>
-          <TouchableOpacity
-            className="bg-blue-500 px-4 py-2 rounded-lg"
-            onPress={addStudent}
-          >
-            <Text className="text-white font-semibold text-sm">+ Add Student</Text>
-          </TouchableOpacity>
+      {/* Wave divider */}
+      <View style={{ height: 36, backgroundColor: '#F0F4FF', marginTop: -36, borderTopLeftRadius: 36, borderTopRightRadius: 36 }} />
+
+      <ScrollView 
+        style={{ flex: 1, paddingHorizontal: 16 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 80 }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Parent Information Card */}
+        <View style={{ backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16, marginBottom: 16, elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } }}>
+          <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827', marginBottom: 12 }}>Parent Information</Text>
+          
+          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
+            <View style={{ flex: 1 }}>
+              <AppInput placeholder="First Name" value={parentFirstName} onChangeText={setParentFirstName} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <AppInput placeholder="Last Name" value={parentLastName} onChangeText={setParentLastName} />
+            </View>
+          </View>
+
+          <View style={{ marginBottom: 10 }}>
+            <AppInput placeholder="Email Address" keyboardType="email-address" autoCapitalize="none" value={email} onChangeText={setEmail} />
+          </View>
+
+          <View style={{ marginBottom: 10 }}>
+            <AppInput placeholder="Password" secureTextEntry value={password} onChangeText={setPassword} />
+          </View>
+
+          <View style={{ marginBottom: 10 }}>
+            <AppInput placeholder="Confirm Password" secureTextEntry value={confirmPassword} onChangeText={setConfirmPassword} />
+          </View>
+
+          <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F9FAFB', borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 10, paddingHorizontal: 4 }}>
+            <TouchableOpacity onPress={() => setIsCountryModalVisible(true)} style={{ flexDirection: 'row', alignItems: 'center', padding: 12 }}>
+              <Text style={{ fontSize: 18, marginRight: 6 }}>{selectedCountry.flag}</Text>
+              <Text style={{ fontSize: 14, color: '#374151', marginRight: 4 }}>{selectedCountry.dialCode}</Text>
+              <Text style={{ fontSize: 12, color: '#9CA3AF' }}>▼</Text>
+            </TouchableOpacity>
+            <View style={{ width: 1, height: 24, backgroundColor: '#D1D5DB', marginHorizontal: 4 }} />
+            <AppInput
+              style={{ flex: 1, borderBottomWidth: 0, paddingLeft: 8, height: 48 }}
+              placeholder="Phone Number"
+              keyboardType="phone-pad"
+              value={phone}
+              onChangeText={setPhone}
+            />
+          </View>
+
+          <AppInput placeholder="Location" value={location} onChangeText={setLocation} />
         </View>
 
-        {students.map((student, index) => (
-          <View key={index} className="border-b border-gray-100 pb-4 mb-4">
-            <View className="flex-row justify-between items-center mb-3">
-              <Text className="font-medium text-gray-700">Student {index + 1}</Text>
-              {students.length > 1 && (
+        {/* Student Information Card */}
+        <View style={{ backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16, marginBottom: 16, elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827' }}>Student Information</Text>
+            <TouchableOpacity onPress={addStudent} style={{ backgroundColor: '#EFF6FF', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 }}>
+              <Text style={{ color: '#1565C0', fontWeight: '700', fontSize: 12 }}>+ Add Student</Text>
+            </TouchableOpacity>
+          </View>
+
+          {students.map((student, index) => (
+            <View key={index} style={{ borderBottomWidth: index === students.length - 1 ? 0 : 1, borderBottomColor: '#F3F4F6', paddingBottom: index === students.length - 1 ? 0 : 16, marginBottom: index === students.length - 1 ? 0 : 16 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <Text style={{ fontSize: 14, fontWeight: '600', color: '#4B5563' }}>Student {index + 1}</Text>
+                {students.length > 1 && (
+                  <TouchableOpacity onPress={() => removeStudent(index)}>
+                    <Text style={{ color: '#EF4444', fontSize: 12, fontWeight: '600' }}>Remove</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
+                <View style={{ flex: 1 }}>
+                  <AppInput placeholder="First Name" value={student.firstName} onChangeText={(value) => updateStudent(index, 'firstName', value)} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <AppInput placeholder="Last Name" value={student.lastName} onChangeText={(value) => updateStudent(index, 'lastName', value)} />
+                </View>
+              </View>
+
+              <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
+                <View style={{ flex: 1 }}>
+                  <TouchableOpacity
+                    style={{ backgroundColor: student.errors?.grade ? '#FEF2F2' : '#F9FAFB', borderWidth: 1, borderColor: student.errors?.grade ? '#F87171' : '#E5E7EB', borderRadius: 12, height: 48, justifyContent: 'center', paddingHorizontal: 14 }}
+                    onPress={() => handleGradeModalOpen(index)}
+                  >
+                    <Text style={{ color: student.grade ? '#111827' : '#9CA3AF', fontSize: 14 }}>{student.grade || 'Select Grade'}</Text>
+                  </TouchableOpacity>
+                  {student.errors?.grade && <Text style={{ color: '#EF4444', fontSize: 11, marginTop: 4 }}>{student.errors.grade}</Text>}
+                </View>
+                
+                <View style={{ flex: 1 }}>
+                  <TouchableOpacity
+                    style={{ backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, height: 48, justifyContent: 'center', paddingHorizontal: 14 }}
+                    onPress={() => handleDatePickerOpen(index)}
+                  >
+                    <Text style={{ color: student.dob ? '#111827' : '#9CA3AF', fontSize: 14 }}>{student.dob || 'Date of Birth'}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <View style={{ marginBottom: 10 }}>
                 <TouchableOpacity
-                  className="text-red-500 text-sm"
-                  onPress={() => removeStudent(index)}
+                  style={{ backgroundColor: student.errors?.school ? '#FEF2F2' : '#F9FAFB', borderWidth: 1, borderColor: student.errors?.school ? '#F87171' : '#E5E7EB', borderRadius: 12, height: 48, justifyContent: 'center', paddingHorizontal: 14 }}
+                  onPress={() => { setSelectedStudentIndex(index); setIsSchoolModalVisible(true); }}
                 >
-                  <Text>Remove</Text>
+                  <Text style={{ color: student.schoolName ? '#111827' : '#9CA3AF', fontSize: 14 }}>{student.schoolName || 'Select School'}</Text>
                 </TouchableOpacity>
+                {student.errors?.school && <Text style={{ color: '#EF4444', fontSize: 11, marginTop: 4 }}>{student.errors.school}</Text>}
+              </View>
+
+              {student.availableSports && student.availableSports.length > 0 && (
+                <View style={{ marginBottom: 10 }}>
+                  <TouchableOpacity
+                    style={{ backgroundColor: student.errors?.sport ? '#FEF2F2' : '#F9FAFB', borderWidth: 1, borderColor: student.errors?.sport ? '#F87171' : '#E5E7EB', borderRadius: 12, height: 48, justifyContent: 'center', paddingHorizontal: 14 }}
+                    onPress={() => handleSportModalOpen(index)}
+                  >
+                    <Text style={{ color: student.sport ? '#111827' : '#9CA3AF', fontSize: 14 }}>{student.sport || 'Select Sport'}</Text>
+                  </TouchableOpacity>
+                  {student.errors?.sport && <Text style={{ color: '#EF4444', fontSize: 11, marginTop: 4 }}>{student.errors.sport}</Text>}
+                </View>
               )}
             </View>
+          ))}
+        </View>
 
-            <View className="flex-row gap-3 mb-3">
-              <View className="flex-1">
-                <AppInput
-                  placeholder="First Name"
-                  value={student.firstName}
-                  onChangeText={(value) => updateStudent(index, 'firstName', value)}
-                />
-              </View>
-              <View className="flex-1">
-                <AppInput
-                  placeholder="Last Name"
-                  value={student.lastName}
-                  onChangeText={(value) => updateStudent(index, 'lastName', value)}
-                />
-              </View>
-            </View>
+        {/* Complete button */}
+        <TouchableOpacity 
+          style={{ backgroundColor: '#E65100', borderRadius: 14, height: 56, alignItems: 'center', justifyContent: 'center', marginBottom: 20, elevation: 3, shadowColor: '#E65100', shadowOpacity: 0.35, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, opacity: loading ? 0.6 : 1 }}
+          onPress={handleRegister}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 18, letterSpacing: 0.5 }}>Complete Registration</Text>
+          )}
+        </TouchableOpacity>
+        
+        {/* Already have an account */}
+        <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 18 }}>
+          <Text style={{ color: '#6B7280', fontSize: 14 }}>Already have an account? </Text>
+          <TouchableOpacity onPress={() => router.push('/auth/login' as any)}>
+            <Text style={{ color: '#1565C0', fontWeight: '700', fontSize: 14 }}>Sign In</Text>
+          </TouchableOpacity>
+        </View>
 
-            <View className="flex-row gap-3 mb-3">
-              <View className="flex-1">
-                <TouchableOpacity
-                  className={`p-3 rounded-xl text-sm border ${student.errors?.grade ? 'border-red-500 bg-red-50' : 'bg-gray-50 border-gray-200'}`}
-                  onPress={() => handleGradeModalOpen(index)}
-                >
-                  <Text className={student.grade ? 'text-sm text-gray-800' : 'text-sm text-gray-400'}>
-                    {student.grade || 'Select Grade'}
-                  </Text>
-                </TouchableOpacity>
-                {student.errors?.grade && (
-                  <Text className="text-red-500 text-xs mt-1">{student.errors.grade}</Text>
-                )}
-              </View>
-              <View className="flex-1">
-                <TouchableOpacity
-                  className="bg-gray-50 p-3 rounded-xl text-sm border border-gray-200 flex-row items-center"
-                  onPress={() => handleDatePickerOpen(index)}
-                >
-                  <Text className="flex-1 text-sm text-gray-800">
-                    {student.dob || 'Date of Birth'}
-                  </Text>
-                  <Text className="text-gray-500"></Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+        <TouchableOpacity 
+          style={{ paddingVertical: 12 }}
+          onPress={async () => {
+             await router.replace('/auth/login' as any);
+          }}
+        >
+          <Text style={{ textAlign: 'center', color: '#EF4444', fontSize: 12, fontWeight: '600' }}>Clear Session & Return to Login</Text>
+        </TouchableOpacity>
 
-            <TouchableOpacity
-              className={`p-3 rounded-xl text-sm border mb-3 ${student.errors?.school ? 'border-red-500 bg-red-50' : 'bg-gray-50 border-gray-200'}`}
-              onPress={() => {
-                setSelectedStudentIndex(index);
-                setIsSchoolModalVisible(true);
-              }}
-            >
-              <Text className={student.schoolName ? 'text-sm text-gray-800' : 'text-sm text-gray-400'}>
-                {student.schoolName || 'Select School'}
-              </Text>
-            </TouchableOpacity>
-            {student.errors?.school && (
-              <Text className="text-red-500 text-xs mb-3">{student.errors.school}</Text>
-            )}
+        <Text style={{ textAlign: 'center', color: '#9CA3AF', fontSize: 11, marginTop: 12, paddingHorizontal: 16 }}>
+          By registering, you agree to the YAU Terms of Service and Privacy Policy.
+        </Text>
 
-            {student.availableSports && student.availableSports.length > 0 && (
-              <>
-                <TouchableOpacity
-                  className={`p-3 rounded-xl text-sm border ${student.errors?.sport ? 'border-red-500 bg-red-50' : 'bg-gray-50 border-gray-200'}`}
-                  onPress={() => handleSportModalOpen(index)}
-                >
-                  <Text className={student.sport ? 'text-sm text-gray-800' : 'text-sm text-gray-400'}>
-                    {student.sport || 'Select Sport'}
-                  </Text>
-                </TouchableOpacity>
-                {student.errors?.sport && (
-                  <Text className="text-red-500 text-xs">{student.errors.sport}</Text>
-                )}
-              </>
-            )}
-          </View>
-        ))}
-      </View>
-
-      <TouchableOpacity 
-        className="bg-[#F97316] py-4 rounded-2xl shadow-md align-middle flex items-center justify-center"
-        onPress={handleRegister}
-        disabled={loading}
-      >
-        {loading ? (
-          <ActivityIndicator color="white" />
-        ) : (
-          <Text className="text-white font-bold text-lg text-center">Complete Registration</Text>
-        )}
-      </TouchableOpacity>
-      
-      <Text className="text-center text-textSecondary text-xs mt-6 pb-40 px-4">
-        By registering, you agree to the YAU Terms of Service and Privacy Policy.
-      </Text>
 
       {/* School Selection Modal */}
       <Modal
@@ -781,5 +819,6 @@ export default function RegisterScreen() {
         />
       )}
       </ScrollView>
+    </View>
   );
 }

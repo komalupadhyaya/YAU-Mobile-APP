@@ -8,6 +8,7 @@ import { Card } from './ui/Card';
 import { Input } from './ui/Input';
 import { Select } from './ui/Select';
 import { Badge } from './ui/Badge';
+import toast from 'react-hot-toast';
 
 interface Schedule {
   id: string;
@@ -61,26 +62,41 @@ const ScheduleManager: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true);
 
+    if (!formData.team1Name.trim() || !formData.team2Name.trim()) {
+      toast.error('Both team names are required.');
+      return;
+    }
+    if (!formData.location.trim()) {
+      toast.error('Location is required.');
+      return;
+    }
+    if (!formData.date || !formData.time) {
+      toast.error('Date and time are required.');
+      return;
+    }
+
+    setSaving(true);
     try {
       if (editingSchedule) {
         await updateDoc(doc(db, 'schedules', editingSchedule.id), {
           ...formData,
           updatedAt: serverTimestamp()
         });
+        toast.success('Game schedule updated successfully.');
       } else {
         await addDoc(collection(db, 'schedules'), {
           ...formData,
           createdAt: serverTimestamp()
         });
+        toast.success('New game scheduled successfully.');
       }
       setIsModalOpen(false);
       setEditingSchedule(null);
       resetForm();
     } catch (error) {
       console.error('Error saving schedule:', error);
-      alert('Failed to save schedule.');
+      toast.error('Failed to save schedule. Please try again.');
     } finally {
       setSaving(false);
     }

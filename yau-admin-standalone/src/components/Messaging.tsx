@@ -7,6 +7,7 @@ import { Input } from './ui/Input';
 import { Select } from './ui/Select';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
+import toast from 'react-hot-toast';
 
 interface Member {
   id: string;
@@ -31,20 +32,23 @@ const Messaging: React.FC = () => {
   const [targetUserCount, setTargetUserCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [fetchingUsers, setFetchingUsers] = useState(false);
-  const [status, setStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
-      const schoolsSnapshot = await getDocs(collection(db, 'locations'));
-      const schoolsList = schoolsSnapshot.docs.map(doc => doc.data().name).filter(Boolean);
-      setSchools(Array.from(new Set(schoolsList)));
-      
-      const membersSnapshot = await getDocs(collection(db, 'members'));
-      const sportsList = membersSnapshot.docs.flatMap(doc => {
-        const data = doc.data();
-        return [data.sport, ...(data.students?.map((s: any) => s.sport) || [])];
-      }).filter(Boolean);
-      setSports(Array.from(new Set(sportsList)));
+      try {
+        const schoolsSnapshot = await getDocs(collection(db, 'locations'));
+        const schoolsList = schoolsSnapshot.docs.map(doc => doc.data().name).filter(Boolean);
+        setSchools(Array.from(new Set(schoolsList)));
+        
+        const membersSnapshot = await getDocs(collection(db, 'members'));
+        const sportsList = membersSnapshot.docs.flatMap(doc => {
+          const data = doc.data();
+          return [data.sport, ...(data.students?.map((s: any) => s.sport) || [])];
+        }).filter(Boolean);
+        setSports(Array.from(new Set(sportsList)));
+      } catch (error) {
+        console.error('Error fetching messaging metadata:', error);
+      }
     };
     fetchData();
   }, []);
@@ -77,18 +81,17 @@ const Messaging: React.FC = () => {
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !description) {
-      setStatus({ type: 'error', message: 'Please fill in both title and message body.' });
+    if (!title.trim() || !description.trim()) {
+      toast.error('Please fill in both title and message body.');
       return;
     }
 
     setLoading(true);
-    setStatus(null);
 
     try {
       await addDoc(collection(db, 'admin_posts'), {
-        title,
-        description,
+        title: title.trim(),
+        description: description.trim(),
         targetLocation: targetSchool,
         targetAgeGroup: targetGradeBand,
         targetSport: targetSport,
@@ -97,12 +100,12 @@ const Messaging: React.FC = () => {
         type: 'admin'
       });
 
-      setStatus({ type: 'success', message: 'Message sent successfully! Push notifications will be triggered.' });
+      toast.success('Broadcast Dispatched! Push notifications are being triggered.');
       setTitle('');
       setDescription('');
     } catch (error) {
       console.error('Error sending message:', error);
-      setStatus({ type: 'error', message: 'Failed to send message. Please try again.' });
+      toast.error('Failed to send broadcast. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -116,21 +119,6 @@ const Messaging: React.FC = () => {
           <p className="text-gray-500 dark:text-white/60 font-medium tracking-tight">Compose and broadcast push notifications to specific groups.</p>
         </div>
       </div>
-
-      {status && (
-        <div className={`
-          p-4 rounded-2xl flex items-start gap-4 animate-in fade-in slide-in-from-top-4 duration-300 border
-          ${status.type === 'success' ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-100 dark:border-emerald-500/20 text-emerald-800 dark:text-emerald-400' : 'bg-red-50 dark:bg-red-500/10 border-red-100 dark:border-red-500/20 text-red-800 dark:text-red-400'}
-        `}>
-          <div className={`p-2 rounded-xl ${status.type === 'success' ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'}`}>
-             {status.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
-          </div>
-          <div className="flex-1">
-            <div className="font-bold text-sm tracking-tight">{status.type === 'success' ? 'Broadcast Dispatched' : 'Dispatch Failed'}</div>
-            <p className="text-xs font-medium opacity-80 mt-0.5">{status.message}</p>
-          </div>
-        </div>
-      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">

@@ -7,6 +7,8 @@ import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { Card } from './ui/Card';
 
+import toast from 'react-hot-toast';
+
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -16,15 +18,38 @@ const Login: React.FC = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!email.trim() || !password) {
+      toast.error('Email and password are required.');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      await signInWithEmailAndPassword(auth, email.trim(), password);
+      toast.success('Successfully logged in!');
       navigate('/');
     } catch (err: any) {
       console.error('Login error:', err);
-      setError('Invalid email or password. Please try again.');
+      let message = 'Invalid email or password. Please try again.';
+      
+      switch (err.code) {
+        case 'auth/user-not-found':
+        case 'auth/wrong-password':
+          message = 'Access denied. Please check your admin credentials.';
+          break;
+        case 'auth/invalid-email':
+          message = 'Please enter a valid administrative email.';
+          break;
+        case 'auth/too-many-requests':
+          message = 'Security lockout: Too many failed attempts. Try again later.';
+          break;
+      }
+      
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }

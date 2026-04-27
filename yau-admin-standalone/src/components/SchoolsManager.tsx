@@ -6,6 +6,7 @@ import { Button } from './ui/Button';
 import { Card } from './ui/Card';
 import { Input } from './ui/Input';
 import { Badge } from './ui/Badge';
+import toast from 'react-hot-toast';
 
 interface AppSchool {
   id: string;
@@ -48,26 +49,39 @@ const SchoolsManager: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true);
 
+    if (!formData.name.trim()) {
+      toast.error('Institution name is required.');
+      return;
+    }
+    if (formData.name.trim().length < 3) {
+      toast.error('Institution name must be at least 3 characters.');
+      return;
+    }
+
+    setSaving(true);
     try {
       if (editingSchool) {
         await updateDoc(doc(db, 'app_schools', editingSchool.id), {
           ...formData,
+          name: formData.name.trim(),
           updatedAt: serverTimestamp()
         });
+        toast.success(`"${formData.name.trim()}" updated successfully.`);
       } else {
         await addDoc(collection(db, 'app_schools'), {
           ...formData,
+          name: formData.name.trim(),
           createdAt: serverTimestamp()
         });
+        toast.success(`"${formData.name.trim()}" added successfully.`);
       }
       setIsModalOpen(false);
       setEditingSchool(null);
       resetForm();
     } catch (error) {
       console.error('Error saving school:', error);
-      alert('Failed to save institution.');
+      toast.error('Failed to save institution. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -83,20 +97,24 @@ const SchoolsManager: React.FC = () => {
         active: !school.active,
         updatedAt: serverTimestamp()
       });
+      toast.success(school.active ? `"${school.name}" closed for registration.` : `"${school.name}" is now accepting registrations.`);
     } catch (error) {
       console.error('Error toggling status:', error);
+      toast.error('Failed to update registration status.');
     }
   };
 
-  const handleSoftDelete = async (id: string) => {
-    if (window.confirm('Archive this institution? It will no longer appear in registration lists.')) {
+  const handleSoftDelete = async (school: AppSchool) => {
+    if (window.confirm(`Archive "${school.name}"? It will no longer appear in registration lists.`)) {
       try {
-        await updateDoc(doc(db, 'app_schools', id), {
+        await updateDoc(doc(db, 'app_schools', school.id), {
           deletedAt: serverTimestamp(),
           active: false
         });
+        toast.success(`"${school.name}" archived successfully.`);
       } catch (error) {
         console.error('Error deleting school:', error);
+        toast.error('Failed to archive institution.');
       }
     }
   };
@@ -199,7 +217,7 @@ const SchoolsManager: React.FC = () => {
                       <Button variant="ghost" size="sm" className="w-9 h-9 p-0" onClick={() => openEditModal(school)}>
                         <Edit2 size={14} className="text-gray-400 dark:text-white/40 hover:text-indigo-600 dark:hover:text-white" />
                       </Button>
-                      <Button variant="ghost" size="sm" className="w-9 h-9 p-0" onClick={() => handleSoftDelete(school.id)}>
+                      <Button variant="ghost" size="sm" className="w-9 h-9 p-0" onClick={() => handleSoftDelete(school)}>
                         <Trash2 size={14} className="text-gray-400 dark:text-white/40 hover:text-red-500 dark:hover:text-red-400" />
                       </Button>
                     </div>

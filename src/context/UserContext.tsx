@@ -2,14 +2,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { onAuthStateChanged } from 'firebase/auth';
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
-import { auth } from '../services/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
+import { auth, db } from '../services/firebase';
 import { apiService } from '../services/api';
 import { registerForPushNotificationsAsync } from '../services/notifications';
 import { Member } from '../types';
 
 interface UserContextType {
   user: Member | null;
-  setUser: (user: Member | null) => void;
+  setUser: (user: Member | null) => Promise<void>;
   loading: boolean;
   clearUser: () => Promise<void>;
 }
@@ -58,16 +59,17 @@ export function UserProvider({ children }: { children: ReactNode }) {
           // Update AsyncStorage
           await updateUser(updatedUser);
           
-          // Sync to API if user has an ID
+          // Sync to Firebase directly if user has an ID
           if (user.id) {
             try {
-              await apiService.updateMember(user.id, {
+              const memberRef = doc(db, (user as any).collection || 'members', user.id);
+              await updateDoc(memberRef, {
                 expoPushTokens: updatedTokens
               });
             } catch (apiError) {
-              // API update failed, but AsyncStorage update succeeded
+              // Firebase update failed, but AsyncStorage update succeeded
               // This is acceptable as the token is still stored locally
-              console.warn('[UserContext] Failed to sync push tokens to API:', apiError);
+              console.warn('[UserContext] Failed to sync push tokens to Firebase:', apiError);
             }
           }
         }
@@ -119,16 +121,18 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   const updateUser = async (newUser: Member | null) => {
     try {
+      // Intentionally update React state BEFORE saving to persistent storage 
+      // so routing redirects don't mount early with stale null contexts
+      setUser(newUser);
+      
       if (newUser && storageAvailable) {
         await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(newUser));
       } else if (storageAvailable) {
         await AsyncStorage.removeItem(USER_STORAGE_KEY);
       }
-      setUser(newUser);
     } catch (error) {
       console.error('Error saving user data:', error);
-      // Still update local state even if storage fails
-      setUser(newUser);
+      // State is already updated, which is fine
     }
   };
 

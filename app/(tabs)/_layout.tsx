@@ -15,12 +15,23 @@ export default function TabLayout() {
     if (loading) return;
     if (hasRedirected.current) return;
     
-    if (!user || !user.students || user.students.length === 0) {
-      if (__DEV__) {
-        console.log('[TabLayout] No valid user data, redirecting to register');
-      }
+    // If no user is logged in, send to login screen
+    if (!user) {
+      if (__DEV__) console.log('[TabLayout] No user, redirecting to login');
       hasRedirected.current = true;
-      router.replace('/auth/register');
+      router.replace('/auth/login' as any);
+      return;
+    }
+
+    // If user is a parent (default) but has no students, they might need to complete registration
+    // However, if they are a coach, they don't have students.
+    const isCoach = user.role === 'coach';
+    const hasStudents = user.students && user.students.length > 0;
+
+    if (!isCoach && !hasStudents) {
+      if (__DEV__) console.log('[TabLayout] Parent with no students, redirecting to register');
+      hasRedirected.current = true;
+      router.replace('/auth/register' as any);
     }
   }, [user, loading, router]);
 
@@ -28,51 +39,61 @@ export default function TabLayout() {
     return null; // Let root layout handle loading state
   }
 
-  if (!user || !user.students || user.students.length === 0) {
-    return null; // Redirecting to register
+  if (!user || (user.role !== 'coach' && (!user.students || user.students.length === 0))) {
+    return null; // Redirecting in useEffect
   }
 
   return (
     <Tabs screenOptions={{
-      tabBarActiveTintColor: '#1E3A8A',
-      tabBarInactiveTintColor: '#6B7280',
+      tabBarActiveTintColor: '#1565C0',
+      tabBarInactiveTintColor: '#9CA3AF',
       tabBarStyle: {
         backgroundColor: '#FFFFFF',
         borderTopWidth: 1,
         borderTopColor: '#E5E7EB',
-        paddingTop: 8,
-        paddingBottom: 8 + insets.bottom,
-        height: 60 + insets.bottom,
+        paddingTop: 6,
+        paddingBottom: 6 + insets.bottom,
+        height: 58 + insets.bottom,
       },
-      headerStyle: {
-        backgroundColor: '#1E3A8A',
-      },
-      headerTintColor: '#FFFFFF',
-      headerTitleStyle: {
-        fontWeight: 'bold',
-      },
+      headerShown: false,
     }}>
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: 'Home',
+          tabBarIcon: ({ color, focused }) => (
+            <MaterialIcons name="home" size={focused ? 28 : 26} color={color} />
+          ),
+        }}
+      />
       <Tabs.Screen
         name="messages"
         options={{
-          title: 'Messages',
-          tabBarIcon: ({ color }) => <MaterialIcons name="message" size={24} color={color} />,
+          title: 'Chats',
+          tabBarIcon: ({ color, focused }) => (
+            <MaterialIcons name="chat-bubble" size={focused ? 26 : 24} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="schedule"
         options={{
           title: 'Schedule',
-          tabBarIcon: ({ color }) => <MaterialIcons name="event" size={24} color={color} />,
+          tabBarIcon: ({ color, focused }) => (
+            <MaterialIcons name="event" size={focused ? 26 : 24} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
-          tabBarIcon: ({ color }) => <MaterialIcons name="person" size={24} color={color} />,
+          title: 'More',
+          tabBarIcon: ({ color, focused }) => (
+            <MaterialIcons name="person" size={focused ? 26 : 24} color={color} />
+          ),
         }}
       />
     </Tabs>
   );
 }
+

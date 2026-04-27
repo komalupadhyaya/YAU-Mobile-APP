@@ -5,7 +5,10 @@ import { apiService } from './api';
 export interface RegistrationData {
   parentFirstName: string;
   parentLastName: string;
+  firstName?: string;
+  lastName?: string;
   email: string;
+  password?: string;
   phone: string;
   location: string;
   sport: string;
@@ -68,6 +71,7 @@ function validateRegistrationData(data: RegistrationData): { valid: boolean; err
   if (!data.parentFirstName.trim()) errors.push('Parent first name is required');
   if (!data.parentLastName.trim()) errors.push('Parent last name is required');
   if (!data.email.trim()) errors.push('Email is required');
+  if (!data.password || !data.password.trim()) errors.push('Password is required');
   if (!data.phone.trim()) errors.push('Phone is required');
   if (!data.location.trim()) errors.push('Location is required');
   if (!data.sport.trim()) errors.push('Sport is required');
@@ -147,9 +151,14 @@ export async function registerMember(data: RegistrationData): Promise<{ success:
       memberData.expoPushTokens = data.expoPushTokens;
     }
     
+    const requestPayload: any = {
+      ...memberData,
+      password: data.password // Pass the password for Firebase Auth creation
+    };
+    
     // 3. Call centralized API to create member
     // This handles Auth, Firestore, Rosters, Chats, and CC
-    const response = await apiService.registerMember(memberData);
+    const response = await apiService.registerMember(requestPayload);
     
     if (!response.success && !response.memberId) {
       throw new Error(response.error || 'API Registration failed');

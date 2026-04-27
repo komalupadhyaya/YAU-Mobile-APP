@@ -1,4 +1,4 @@
-import { Bell, Calendar, LayoutDashboard, LogOut, Menu, MessageSquare, Moon, School, Sun, User as UserIcon, Users, X } from 'lucide-react';
+import { Bell, Calendar, LayoutDashboard, LogOut, Menu, MessageSquare, Moon, School, Shirt, Sun, User as UserIcon, Users, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Link, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import Dashboard from './components/Dashboard';
@@ -7,6 +7,8 @@ import MembersList from './components/MembersList';
 import Messaging from './components/Messaging';
 import ScheduleManager from './components/ScheduleManager';
 import SchoolsManager from './components/SchoolsManager';
+import CoachManager from './components/CoachManager';
+import UniformManager from './components/UniformManager';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 function SidebarContent({ collapsed, onItemClick }: { collapsed: boolean; onItemClick?: () => void }) {
@@ -15,6 +17,8 @@ function SidebarContent({ collapsed, onItemClick }: { collapsed: boolean; onItem
   const navItems = [
     { path: '/', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/members', label: 'Members', icon: Users },
+    { path: '/coaches', label: 'Coaching staff', icon: UserIcon },
+    { path: '/uniforms', label: 'Uniforms', icon: Shirt },
     { path: '/messaging', label: 'Messaging', icon: MessageSquare },
     { path: '/schedules', label: 'Schedules', icon: Calendar },
     { path: '/schools', label: 'Schools', icon: School },
@@ -217,6 +221,8 @@ function AppLayout() {
               <Route path="/" element={<Dashboard />} />
               <Route path="/members" element={<MembersList />} />
               <Route path="/messaging" element={<Messaging />} />
+              <Route path="/coaches" element={<CoachManager />} />
+              <Route path="/uniforms" element={<UniformManager />} />
               <Route path="/schedules" element={<ScheduleManager />} />
               <Route path="/schools" element={<SchoolsManager />} />
             </Routes>
@@ -227,10 +233,13 @@ function AppLayout() {
   );
 }
 
+import { Toaster } from 'react-hot-toast';
+
 function App() {
   return (
     <Router>
       <AuthProvider>
+        <Toaster position="top-right" />
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route

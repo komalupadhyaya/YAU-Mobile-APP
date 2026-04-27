@@ -10,7 +10,7 @@ export default function IndexScreen() {
       if (user) {
         router.replace('/(tabs)/messages');
       } else {
-        router.replace('/auth/register');
+        router.replace('/auth/login' as any);
       }
     }
   }, [user, loading]);

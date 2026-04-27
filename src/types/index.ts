@@ -23,6 +23,7 @@ export interface Member {
   createdAt: any; // Firestore Timestamp
   students: Student[];
   expoPushTokens?: string[]; // Support multiple devices
+  role?: 'coach' | 'parent' | 'admin';
 }
 
 export interface User {
