@@ -2,6 +2,23 @@ import { Member, Student } from '../types';
 import { generateGroupId, getGradeBand } from '../utils/group';
 import { apiService } from './api';
 
+// Canonical grade band labels used throughout the app
+export const GRADE_BANDS = [
+  { label: 'K / 1st Grade',                  value: 'K / 1st Grade',          band: 'Band 1' },
+  { label: '2nd / 3rd Grade',                 value: '2nd / 3rd Grade',         band: 'Band 2' },
+  { label: '4th / 5th Grade',                 value: '4th / 5th Grade',         band: 'Band 3' },
+  { label: 'Middle School (6th, 7th, 8th)',   value: 'Middle School',           band: 'Band 4' },
+];
+
+// Canonical sport options used throughout the app
+export const SPORTS = ['Flag Football', 'Soccer', 'Cheer', 'Basketball'];
+
+// Map grade band value → Band key
+export function gradeBandToBandKey(gradeBand: string): string {
+  const match = GRADE_BANDS.find(g => g.value === gradeBand || g.label === gradeBand);
+  return match ? match.band : 'Band 1';
+}
+
 export interface RegistrationData {
   parentFirstName: string;
   parentLastName: string;
@@ -9,167 +26,114 @@ export interface RegistrationData {
   lastName?: string;
   email: string;
   password?: string;
-  phone: string;
-  location: string;
-  sport: string;
+  phone: string;          // stored as digits only, e.g. "2027013900"
+  sport: string;          // primary sport (first student's sport or comma-joined)
   membershipType: 'paid' | 'free';
+  smsConsent?: boolean;
   students: {
     firstName: string;
     lastName: string;
-    grade: string;
+    gradeBand: string;    // e.g. "K / 1st Grade"
     schoolName: string;
-    dob: string;
+    sports: string[];     // multi-select
     ageGroup?: string;
-    sport: string;
+    sport?: string;       // backward compat
   }[];
   expoPushTokens?: string[];
 }
 
-function calculateAgeGroup(grade: string): string {
-  const gradeLower = grade.toLowerCase();
-  if (gradeLower.includes('k') || gradeLower.includes('kindergarten') || gradeLower.includes('pre-k')) return 'Band 1';
-  
-  // Try to extract numeric grade
-  const gradeNum = parseInt(grade.replace(/\D/g, ''));
-  if (!isNaN(gradeNum)) {
-    if (gradeNum <= 1) return 'Band 1';
-    if (gradeNum <= 3) return 'Band 2';
-    if (gradeNum <= 5) return 'Band 3';
-    if (gradeNum <= 8) return 'Band 4';
-  }
-  
-  // Fallback string matching
-  if (gradeLower.includes('1st')) return 'Band 1';
-  if (gradeLower.includes('2nd') || gradeLower.includes('3rd')) return 'Band 2';
-  if (gradeLower.includes('4th') || gradeLower.includes('5th')) return 'Band 3';
-  if (gradeLower.includes('6th') || gradeLower.includes('7th') || gradeLower.includes('8th')) return 'Band 4';
-  
-  return 'Band 1'; // Default
-}
-
-function formatPhoneNumber(phone: string): string {
-  // Remove all non-numeric characters
-  const cleaned = phone.replace(/\D/g, '');
-  
-  // If it starts with 1, assume US and format as +1XXXXXXXXXX
-  if (cleaned.length === 10) {
-    return `+1${cleaned}`;
-  }
-  
-  // If it already has 11 digits and starts with 1
-  if (cleaned.length === 11 && cleaned.startsWith('1')) {
-    return `+${cleaned}`;
-  }
-  
-  // Return as-is if it doesn't match expected patterns
-  return phone;
-}
-
 function validateRegistrationData(data: RegistrationData): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
-  
+
   if (!data.parentFirstName.trim()) errors.push('Parent first name is required');
   if (!data.parentLastName.trim()) errors.push('Parent last name is required');
   if (!data.email.trim()) errors.push('Email is required');
-  if (!data.password || !data.password.trim()) errors.push('Password is required');
+  if (!data.password?.trim()) errors.push('Password is required');
   if (!data.phone.trim()) errors.push('Phone is required');
-  if (!data.location.trim()) errors.push('Location is required');
-  if (!data.sport.trim()) errors.push('Sport is required');
-  
+
   if (data.students.length === 0) {
     errors.push('At least one student is required');
   } else {
     data.students.forEach((student, index) => {
-      if (!student.firstName.trim()) errors.push(`Student ${index + 1} first name is required`);
-      if (!student.lastName.trim()) errors.push(`Student ${index + 1} last name is required`);
-      if (!student.grade.trim()) errors.push(`Student ${index + 1} grade is required`);
-      if (!student.schoolName.trim()) errors.push(`Student ${index + 1} school name is required`);
-      if (!student.dob.trim()) errors.push(`Student ${index + 1} date of birth is required`);
-      
-      // Validate that school, sport, and grade are present for groupId generation
-      if (!student.schoolName.trim()) errors.push(`Student ${index + 1} school is required for group assignment`);
-      if (!data.sport.trim()) errors.push(`Student ${index + 1} sport is required for group assignment`);
-      if (!student.grade.trim()) errors.push(`Student ${index + 1} grade is required for group assignment`);
+      if (!student.firstName.trim()) errors.push(`Student ${index + 1}: first name is required`);
+      if (!student.lastName.trim()) errors.push(`Student ${index + 1}: last name is required`);
+      if (!student.gradeBand) errors.push(`Student ${index + 1}: grade band is required`);
+      if (!student.schoolName.trim()) errors.push(`Student ${index + 1}: school is required`);
+      if (!student.sports || student.sports.length === 0) errors.push(`Student ${index + 1}: at least one sport is required`);
     });
   }
-  
+
   return { valid: errors.length === 0, errors };
 }
 
 export async function registerMember(data: RegistrationData): Promise<{ success: boolean; error?: string; memberId?: string }> {
   try {
-    // 1. Validate fields
     const validation = validateRegistrationData(data);
     if (!validation.valid) {
       return { success: false, error: validation.errors.join(', ') };
     }
-    
-    // 2. Transform UI data to backend structure
-    const students: Student[] = data.students.map(student => {
+
+    const students: Student[] = data.students.flatMap(student => {
       const schoolName = student.schoolName.trim();
-      const grade = student.grade.trim();
-      // Ensure sport consistency: use student's sport if available, otherwise use parent's sport
-      const sport = (student.sport && student.sport.trim()) || data.sport.trim();
-      
-      // Generate groupId based on school, grade band, and sport
-      const groupId = generateGroupId(schoolName, grade, sport);
-      
-      if (!groupId) {
-        throw new Error(`Invalid grade for student ${student.firstName} ${student.lastName}. Please select a valid grade between Kindergarten and 8th Grade.`);
-      }
-      
-      // Calculate grade_band from grade using getGradeBand utility
-      const grade_band = getGradeBand(grade) || 'Band1';
-      
-      return {
-        firstName: student.firstName.trim(),
-        lastName: student.lastName.trim(),
-        grade: grade,
-        grade_band: grade_band,
-        school_name: schoolName,
-        dob: student.dob.trim(),
-        ageGroup: student.ageGroup || calculateAgeGroup(grade),
-        sport: sport,
-        groupId
-      };
+      const gradeBand = student.gradeBand;
+      const bandKey = gradeBandToBandKey(gradeBand);
+      const sports = student.sports && student.sports.length > 0 ? student.sports : [data.sport];
+
+      // Create one student record per sport (for group assignment)
+      return sports.map(sport => {
+        const groupId = generateGroupId(schoolName, gradeBand, sport);
+        return {
+          firstName: student.firstName.trim(),
+          lastName: student.lastName.trim(),
+          grade: gradeBand,
+          grade_band: bandKey,
+          school_name: schoolName,
+          dob: '',
+          ageGroup: bandKey,
+          sport,
+          groupId: groupId || '',
+          sports,
+        };
+      });
     });
-    
+
+    // Deduplicate (keep unique student×school×sport combos but one record per student if same school/sport)
+    const primarySport = data.students[0]?.sports?.[0] || data.sport || '';
+
     const memberData: Omit<Member, 'createdAt'> = {
       firstName: data.parentFirstName.trim(),
       lastName: data.parentLastName.trim(),
       email: data.email.trim(),
-      phone: formatPhoneNumber(data.phone),
-      location: data.location.trim(),
-      sport: data.sport.trim(),
+      phone: data.phone.trim(),
+      location: '',
+      sport: primarySport,
       membershipType: data.membershipType,
       registrationSource: 'mobile',
-      students
+      students,
+      smsConsent: data.smsConsent ?? false,
     };
-    
-    // Add Expo push tokens if available (support multiple devices)
+
     if (data.expoPushTokens && data.expoPushTokens.length > 0) {
       memberData.expoPushTokens = data.expoPushTokens;
     }
-    
+
     const requestPayload: any = {
       ...memberData,
-      password: data.password // Pass the password for Firebase Auth creation
+      password: data.password,
     };
-    
-    // 3. Call centralized API to create member
-    // This handles Auth, Firestore, Rosters, Chats, and CC
+
     const response = await apiService.registerMember(requestPayload);
-    
+
     if (!response.success && !response.memberId) {
       throw new Error(response.error || 'API Registration failed');
     }
-    
+
     return { success: true, memberId: response.data?.memberId || response.memberId };
   } catch (error) {
     if (__DEV__) console.error('Registration error:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Registration failed' 
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Registration failed',
     };
   }
 }

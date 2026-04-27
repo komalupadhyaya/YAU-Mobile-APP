@@ -1,278 +1,134 @@
-import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUser } from '../../src/context/UserContext';
+
+const { width } = Dimensions.get('window');
 
 export default function HomeScreen() {
   const { user } = useUser();
   const insets = useSafeAreaInsets();
 
-  const firstName = user?.firstName || 'Member';
-
-  // My Teams info from first student
-  const student = user?.students?.[0];
-  const myTeamLabel = student
-    ? `${student.school_name || 'School'} — ${student.grade_band || student.grade || 'Grade'} ${student.sport || ''}`
-    : 'No team assigned';
+  const firstName = user?.firstName || 'Sports';
 
   return (
-    <ScrollView
-      style={styles.flex}
-      contentContainerStyle={{ paddingBottom: insets.bottom + 80 }}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Blue gradient header */}
-      <LinearGradient
-        colors={['#1565C0', '#1976D2', '#42A5F5']}
-        style={[styles.header, { paddingTop: insets.top + 12 }]}
-      >
-        {/* Logo row */}
-        <View style={styles.logoRow}>
-          <Image
-            source={require('../../assets/images/icon.png')}
-            style={styles.logoIcon}
-            resizeMode="contain"
-          />
-          <Text style={styles.logoText}>YAU SPORTS</Text>
+    <View style={styles.container}>
+      {/* Premium Header */}
+      <LinearGradient colors={['#001A3D', '#002C61']} style={[styles.header, { paddingTop: insets.top + 10 }]}>
+        <View style={styles.headerTop}>
+          <Image source={require('../../assets/images/icon.png')} style={styles.logo} resizeMode="contain" />
+          <View>
+            <Text style={styles.headerBrand}>YOUTH ATHLETE UNIVERSITY</Text>
+            <Text style={styles.headerWelcome}>Welcome, {firstName}!</Text>
+          </View>
         </View>
-
-        {/* Welcome */}
-        <Text style={styles.welcomeText}>Welcome, {firstName}!</Text>
       </LinearGradient>
 
-      {/* Wave divider */}
-      <View style={styles.wave} />
-
-      {/* Content */}
-      <View style={styles.content}>
-        {/* Row 1: Messages + Game Schedule */}
-        <View style={styles.tileRow}>
-          {/* Messages tile — blue */}
-          <TouchableOpacity
-            style={styles.tileHalf}
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Quick Action Tiles */}
+        <View style={styles.tilesGrid}>
+          <TouchableOpacity 
+            style={[styles.tile, { backgroundColor: '#002C61' }]} 
             onPress={() => router.push('/(tabs)/messages' as any)}
-            activeOpacity={0.85}
           >
-            <LinearGradient colors={['#1565C0', '#1976D2']} style={styles.tileGradient}>
-              <View style={styles.tileBadgeWrapper}>
-                <Text style={styles.tileEmoji}>💬</Text>
-                {/* Unread badge — static visual */}
-                <View style={styles.unreadBadge}>
-                  <Text style={styles.unreadBadgeText}>2</Text>
-                </View>
-              </View>
-              <Text style={styles.tileLabel}>Messages</Text>
-            </LinearGradient>
+            <MaterialIcons name="chat-bubble" size={28} color="#FFF" />
+            <Text style={styles.tileTitle}>Messages</Text>
+            <View style={styles.badge}><Text style={styles.badgeText}>2</Text></View>
           </TouchableOpacity>
 
-          {/* Game Schedule tile — green */}
-          <TouchableOpacity
-            style={styles.tileHalf}
+          <TouchableOpacity 
+            style={[styles.tile, { backgroundColor: '#002C61' }]} 
             onPress={() => router.push('/(tabs)/schedule' as any)}
-            activeOpacity={0.85}
           >
-            <LinearGradient colors={['#2E7D32', '#388E3C']} style={styles.tileGradient}>
-              <Text style={styles.tileEmoji}>📅⚽🏈</Text>
-              <Text style={styles.tileLabel}>Game Schedule</Text>
-            </LinearGradient>
+            <MaterialIcons name="event" size={28} color="#FFF" />
+            <Text style={styles.tileTitle}>Schedule</Text>
+            <View style={styles.badge}><Text style={styles.badgeText}>3</Text></View>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.tile, { backgroundColor: '#E31B23' }]} 
+            onPress={() => router.push('/(tabs)/standings' as any)}
+          >
+            <MaterialIcons name="leaderboard" size={28} color="#FFF" />
+            <Text style={styles.tileTitle}>Standings</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Row 2: Standings — full width orange */}
-        <TouchableOpacity style={styles.tileFull} activeOpacity={0.85}>
-          <LinearGradient colors={['#E65100', '#EF6C00']} style={styles.tileGradientFull}>
-            <Text style={styles.standingsEmoji}>🏆</Text>
-            <View style={styles.podium}>
-              <View style={[styles.podiumBlock, styles.podiumSilver]}>
-                <Text style={styles.podiumNum}>2</Text>
-              </View>
-              <View style={[styles.podiumBlock, styles.podiumGold]}>
-                <Text style={styles.podiumNum}>1</Text>
-              </View>
-              <View style={[styles.podiumBlock, styles.podiumBronze]}>
-                <Text style={styles.podiumNum}>3</Text>
-              </View>
-            </View>
-            <Text style={styles.tileLabel}>Standings</Text>
-          </LinearGradient>
-        </TouchableOpacity>
+        {/* Vertical Feed: Upcoming Match */}
+        <View style={styles.feedHeader}>
+          <Text style={styles.feedTitle}>Upcoming Match</Text>
+          <TouchableOpacity><Text style={styles.viewAll}>See All</Text></TouchableOpacity>
+        </View>
 
-        {/* Row 3: My Teams + Announcements info cards */}
-        <View style={styles.infoRow}>
-          {/* My Teams */}
-          <View style={styles.infoCard}>
-            <View style={styles.infoCardHeader}>
-              <MaterialIcons name="groups" size={18} color="#1565C0" />
-              <Text style={styles.infoCardTitle}>My Teams</Text>
+        <View style={styles.matchCard}>
+          <View style={styles.matchTag}><Text style={styles.matchTagText}>Game — Today, 4:00 PM</Text></View>
+          <View style={styles.teamsRow}>
+            <View style={styles.team}>
+              <View style={[styles.teamIcon, { backgroundColor: '#002C61' }]}><Text style={styles.teamInit}>Y</Text></View>
+              <Text style={styles.teamName}>YAU Kings</Text>
             </View>
-            <Text style={styles.infoCardBody} numberOfLines={2}>{myTeamLabel}</Text>
+            <Text style={styles.vs}>VS</Text>
+            <View style={styles.team}>
+              <View style={[styles.teamIcon, { backgroundColor: '#E31B23' }]}><Text style={styles.teamInit}>H</Text></View>
+              <Text style={styles.teamName}>High Flyers</Text>
+            </View>
           </View>
-
-          {/* Announcements */}
-          <TouchableOpacity
-            style={styles.infoCard}
-            onPress={() => router.push('/(tabs)/messages' as any)}
-            activeOpacity={0.85}
-          >
-            <View style={styles.infoCardHeader}>
-              <MaterialIcons name="campaign" size={18} color="#E65100" />
-              <Text style={styles.infoCardTitle}>Announcements</Text>
-            </View>
-            <Text style={styles.infoCardBody} numberOfLines={2}>
-              Tap to view the latest updates from YAU
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.matchFooter}>
+            <MaterialIcons name="location-on" size={14} color="#6B7280" />
+            <Text style={styles.locationText}>Central Stadium, Pitch 4</Text>
+          </View>
         </View>
-      </View>
-    </ScrollView>
+
+        <View style={styles.matchCard}>
+          <View style={[styles.matchTag, { backgroundColor: '#F3F4F6' }]}><Text style={[styles.matchTagText, { color: '#6B7280' }]}>Game — Sat, 10:00 AM</Text></View>
+          <View style={styles.teamsRow}>
+            <View style={styles.team}>
+              <View style={[styles.teamIcon, { backgroundColor: '#002C61' }]}><Text style={styles.teamInit}>Y</Text></View>
+              <Text style={styles.teamName}>YAU Titans</Text>
+            </View>
+            <Text style={styles.vs}>VS</Text>
+            <View style={styles.team}>
+              <View style={[styles.teamIcon, { backgroundColor: '#4B5563' }]}><Text style={styles.teamInit}>S</Text></View>
+              <Text style={styles.teamName}>Street Bulls</Text>
+            </View>
+          </View>
+          <View style={styles.matchFooter}>
+            <MaterialIcons name="location-on" size={14} color="#6B7280" />
+            <Text style={styles.locationText}>West Side Arena</Text>
+          </View>
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: '#F0F4FF' },
-  header: {
-    paddingHorizontal: 24,
-    paddingBottom: 52,
-    alignItems: 'center',
-  },
-  logoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 18,
-  },
-  logoIcon: { width: 40, height: 40, borderRadius: 8 },
-  logoText: { fontSize: 24, fontWeight: '900', color: '#FFFFFF', letterSpacing: 1 },
-  welcomeText: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  wave: {
-    height: 36,
-    backgroundColor: '#F0F4FF',
-    marginTop: -36,
-    borderTopLeftRadius: 36,
-    borderTopRightRadius: 36,
-  },
-  content: {
-    paddingHorizontal: 16,
-    paddingTop: 4,
-  },
-
-  // Tiles
-  tileRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 12,
-  },
-  tileHalf: {
-    flex: 1,
-    borderRadius: 18,
-    overflow: 'hidden',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-  },
-  tileGradient: {
-    padding: 20,
-    alignItems: 'center',
-    minHeight: 130,
-    justifyContent: 'center',
-    gap: 10,
-  },
-  tileFull: {
-    borderRadius: 18,
-    overflow: 'hidden',
-    marginBottom: 12,
-    elevation: 4,
-    shadowColor: '#E65100',
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-  },
-  tileGradientFull: {
-    padding: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    minHeight: 140,
-  },
-  tileBadgeWrapper: {
-    position: 'relative',
-  },
-  tileEmoji: { fontSize: 36 },
-  tileLabel: { color: '#FFFFFF', fontWeight: '800', fontSize: 16, letterSpacing: 0.3 },
-  unreadBadge: {
-    position: 'absolute',
-    top: -6,
-    right: -12,
-    backgroundColor: '#E65100',
-    borderRadius: 10,
-    minWidth: 22,
-    height: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#1565C0',
-    paddingHorizontal: 4,
-  },
-  unreadBadgeText: { color: '#fff', fontSize: 11, fontWeight: '900' },
-
-  // Standings podium
-  standingsEmoji: { fontSize: 40, marginBottom: 4 },
-  podium: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 6,
-    marginBottom: 4,
-  },
-  podiumBlock: {
-    width: 38,
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    borderRadius: 4,
-    paddingBottom: 4,
-  },
-  podiumGold: { height: 44, backgroundColor: 'rgba(255,255,255,0.35)' },
-  podiumSilver: { height: 34, backgroundColor: 'rgba(255,255,255,0.2)' },
-  podiumBronze: { height: 26, backgroundColor: 'rgba(255,255,255,0.15)' },
-  podiumNum: { color: '#fff', fontWeight: '900', fontSize: 16 },
-
-  // Info cards
-  infoRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  infoCard: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 14,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-  },
-  infoCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 8,
-  },
-  infoCardTitle: {
-    fontWeight: '700',
-    fontSize: 13,
-    color: '#111827',
-  },
-  infoCardBody: {
-    fontSize: 12,
-    color: '#6B7280',
-    lineHeight: 18,
-  },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  header: { paddingHorizontal: 20, paddingBottom: 25, borderBottomLeftRadius: 30, borderBottomRightRadius: 30 },
+  headerTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  logo: { width: 36, height: 36 },
+  headerBrand: { color: '#FFF', fontSize: 10, fontWeight: '800', letterSpacing: 1, opacity: 0.8 },
+  headerWelcome: { color: '#FFF', fontSize: 22, fontWeight: '900', marginTop: 2 },
+  scrollContent: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 40 },
+  tilesGrid: { flexDirection: 'row', gap: 12, marginBottom: 30 },
+  tile: { flex: 1, height: 110, borderRadius: 20, padding: 15, justifyContent: 'flex-end', position: 'relative', elevation: 8, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 10 },
+  tileTitle: { color: '#FFF', fontSize: 14, fontWeight: '800', marginTop: 10 },
+  badge: { position: 'absolute', top: 12, right: 12, backgroundColor: '#E31B23', width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: '#FFF' },
+  badgeText: { color: '#FFF', fontSize: 10, fontWeight: '900' },
+  feedHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+  feedTitle: { fontSize: 18, fontWeight: '900', color: '#111827' },
+  viewAll: { fontSize: 13, fontWeight: '700', color: '#0047AB' },
+  matchCard: { backgroundColor: '#FFF', borderRadius: 24, padding: 16, marginBottom: 16, borderWidth: 1.5, borderColor: '#F3F4F6', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8 },
+  matchTag: { alignSelf: 'flex-start', backgroundColor: '#EFF6FF', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, marginBottom: 15 },
+  matchTagText: { color: '#0047AB', fontSize: 11, fontWeight: '800' },
+  teamsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15 },
+  team: { alignItems: 'center', flex: 1 },
+  teamIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  teamInit: { color: '#FFF', fontSize: 18, fontWeight: '900' },
+  teamName: { fontSize: 13, fontWeight: '800', color: '#111827' },
+  vs: { fontSize: 16, fontWeight: '900', color: '#9CA3AF' },
+  matchFooter: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#F3F4F6' },
+  locationText: { color: '#6B7280', fontSize: 12, fontWeight: '600' },
 });

@@ -1,217 +1,343 @@
-import { collection, getDocs } from 'firebase/firestore';
-import { Activity, AlertCircle, Calendar, ChevronRight, Database, MessageSquare, RefreshCw, School, ShieldCheck, Users } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
-import { migrateSchedules } from '../lib/consistency';
+import {
+  collection,
+  getDocs,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+  Timestamp,
+  where,
+} from 'firebase/firestore';
+import {
+  Activity,
+  Bell,
+  Calendar,
+  MessageSquare,
+  School,
+  Trophy,
+  Users,
+} from 'lucide-react';
 import { db } from '../lib/firebase';
-import { Badge } from './ui/Badge';
-import { Button } from './ui/Button';
 import { Card } from './ui/Card';
+import { Badge } from './ui/Badge';
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+interface StatCard { label: string; value: number | string; icon: React.ReactNode; color: string; bg: string; }
+interface RecentReg {
+  id: string; parentName: string; school: string; sport: string; createdAt: any;
+}
+interface RecentMsg {
+  id: string; title: string; targetLocation: string; targetAgeGroup: string; createdAt: any;
+}
+interface UpcomingGame {
+  id: string; team1Name: string; team2Name: string; sport: string; date: string; time: string; grade_band: string;
+}
+interface SportBreakdown { sport: string; count: number; }
+interface GradeBreakdown { band: string; count: number; }
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function timeAgo(ts: any): string {
+  if (!ts) return '';
+  const date = ts instanceof Timestamp ? ts.toDate() : new Date(ts);
+  const diff = Math.floor((Date.now() - date.getTime()) / 60000);
+  if (diff < 1) return 'just now';
+  if (diff < 60) return `${diff}m ago`;
+  if (diff < 1440) return `${Math.floor(diff / 60)}h ago`;
+  return `${Math.floor(diff / 1440)}d ago`;
+}
+
+function isThisWeek(ts: any): boolean {
+  if (!ts) return false;
+  const date = ts instanceof Timestamp ? ts.toDate() : new Date(ts);
+  const now = Date.now();
+  return now - date.getTime() < 7 * 24 * 60 * 60 * 1000;
+}
+
+const SPORT_COLORS: Record<string, string> = {
+  'Flag Football': '#1565C0',
+  'Soccer': '#2E7D32',
+  'Cheer': '#AD1457',
+  'Basketball': '#E65100',
+};
+
+// ─── Dashboard Component ──────────────────────────────────────────────────────
 const Dashboard: React.FC = () => {
-  const [stats, setStats] = useState({
-    members: 0,
-    schedules: 0,
-    messages: 0,
-    schools: 0
-  });
+  const [totalMembers, setTotalMembers] = useState(0);
+  const [totalSchools, setTotalSchools] = useState(0);
+  const [messagesThisWeek, setMessagesThisWeek] = useState(0);
+  const [upcomingGamesCount, setUpcomingGamesCount] = useState(0);
+  const [recentRegs, setRecentRegs] = useState<RecentReg[]>([]);
+  const [recentMsgs, setRecentMsgs] = useState<RecentMsg[]>([]);
+  const [upcomingGames, setUpcomingGames] = useState<UpcomingGame[]>([]);
+  const [sportBreakdown, setSportBreakdown] = useState<SportBreakdown[]>([]);
+  const [gradeBreakdown, setGradeBreakdown] = useState<GradeBreakdown[]>([]);
   const [loading, setLoading] = useState(true);
-  const [migrating, setMigrating] = useState(false);
-  const [migrationResult, setMigrationResult] = useState<{ success: boolean, count: number } | null>(null);
 
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const [membersSnap, schedulesSnap, messagesSnap, schoolsSnap] = await Promise.all([
-          getDocs(collection(db, 'members')),
-          getDocs(collection(db, 'schedules')),
-          getDocs(collection(db, 'admin_posts')),
-          getDocs(collection(db, 'app_schools'))
-        ]);
+    const unsubs: (() => void)[] = [];
 
-        setStats({
-          members: membersSnap.size,
-          schedules: schedulesSnap.size,
-          messages: messagesSnap.size,
-          schools: schoolsSnap.size
-        });
-      } catch (error) {
-        console.error('Error fetching dashboard stats:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+    // Members
+    const membersUnsub = onSnapshot(collection(db, 'members'), (snap) => {
+      setTotalMembers(snap.size);
 
-    fetchStats();
+      // Recent registrations (last 5)
+      const docs = snap.docs
+        .map(d => ({ id: d.id, ...d.data() } as any))
+        .sort((a, b) => {
+          const at = a.createdAt?.seconds ?? 0;
+          const bt = b.createdAt?.seconds ?? 0;
+          return bt - at;
+        })
+        .slice(0, 5);
+      setRecentRegs(docs.map((d: any) => ({
+        id: d.id,
+        parentName: `${d.firstName || ''} ${d.lastName || ''}`.trim() || 'Unknown',
+        school: d.students?.[0]?.school_name || '—',
+        sport: d.students?.[0]?.sport || d.sport || '—',
+        createdAt: d.createdAt,
+      })));
+
+      // Sport breakdown
+      const sportMap: Record<string, number> = {};
+      snap.docs.forEach(d => {
+        const data = d.data();
+        const sport = data.students?.[0]?.sport || data.sport || 'Other';
+        sportMap[sport] = (sportMap[sport] || 0) + 1;
+      });
+      setSportBreakdown(Object.entries(sportMap).map(([sport, count]) => ({ sport, count })).sort((a, b) => b.count - a.count));
+
+      // Grade breakdown
+      const gradeMap: Record<string, number> = {};
+      snap.docs.forEach(d => {
+        const data = d.data();
+        const band = data.students?.[0]?.grade_band || data.students?.[0]?.ageGroup || 'Unknown';
+        gradeMap[band] = (gradeMap[band] || 0) + 1;
+      });
+      setGradeBreakdown(Object.entries(gradeMap).map(([band, count]) => ({ band, count })).sort((a, b) => a.band.localeCompare(b.band)));
+
+      setLoading(false);
+    });
+    unsubs.push(membersUnsub);
+
+    // Schools
+    const schoolsUnsub = onSnapshot(query(collection(db, 'app_schools'), where('active', '==', true)), snap => {
+      setTotalSchools(snap.size);
+    });
+    unsubs.push(schoolsUnsub);
+
+    // Messages
+    const msgsUnsub = onSnapshot(query(collection(db, 'admin_posts'), orderBy('createdAt', 'desc'), limit(20)), snap => {
+      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+      setMessagesThisWeek(docs.filter(d => isThisWeek(d.createdAt)).length);
+      setRecentMsgs(docs.slice(0, 3).map(d => ({
+        id: d.id,
+        title: d.title || 'Untitled',
+        targetLocation: d.targetLocation || 'All',
+        targetAgeGroup: d.targetAgeGroup || 'All',
+        createdAt: d.createdAt,
+      })));
+    });
+    unsubs.push(msgsUnsub);
+
+    // Schedules — upcoming this week
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayStr = today.toISOString().split('T')[0];
+    const nextWeek = new Date(today.getTime() + 7 * 24 * 3600 * 1000).toISOString().split('T')[0];
+
+    getDocs(query(collection(db, 'schedules'), orderBy('date', 'asc'), limit(50))).then(snap => {
+      const upcoming = snap.docs
+        .map(d => ({ id: d.id, ...d.data() } as any))
+        .filter(d => d.date >= todayStr)
+        .slice(0, 5);
+      setUpcomingGamesCount(snap.docs.filter(d => { const dt = d.data().date; return dt >= todayStr && dt <= nextWeek; }).length);
+      setUpcomingGames(upcoming);
+    });
+
+    return () => unsubs.forEach(f => f());
   }, []);
 
-  const handleMigration = async () => {
-    setMigrating(true);
-    setMigrationResult(null);
-    const result = await migrateSchedules();
-    setMigrationResult(result);
-    setMigrating(false);
-  };
-
-  const statCards = [
-    { label: 'Total Members', value: stats.members, icon: Users, color: 'text-blue-600', bg: 'bg-blue-50' },
-    { label: 'Active Schedules', value: stats.schedules, icon: Calendar, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-    { label: 'Broadcasts Sent', value: stats.messages, icon: MessageSquare, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-    { label: 'Apps/Schools', value: stats.schools, icon: School, color: 'text-purple-600', bg: 'bg-purple-50' },
+  const stats: StatCard[] = [
+    { label: 'Total Members',    value: totalMembers,      icon: <Users size={22} />,        color: '#1565C0', bg: '#EFF6FF' },
+    { label: 'Active Schools',   value: totalSchools,      icon: <School size={22} />,       color: '#2E7D32', bg: '#F0FDF4' },
+    { label: 'Messages / Week',  value: messagesThisWeek,  icon: <MessageSquare size={22} />, color: '#AD1457', bg: '#FDF2F8' },
+    { label: 'Games This Week',  value: upcomingGamesCount, icon: <Calendar size={22} />,    color: '#E65100', bg: '#FFF7ED' },
   ];
 
   if (loading) {
     return (
-      <div className="space-y-8 animate-pulse">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-32 bg-gray-200 rounded-2xl"></div>
-          ))}
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="h-64 bg-gray-200 rounded-2xl"></div>
-          <div className="h-64 bg-gray-200 rounded-2xl"></div>
-        </div>
+      <div className="flex flex-col items-center justify-center h-64 space-y-4">
+        <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+        <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">Loading Dashboard…</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8 pb-12">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight">System Dashboard</h1>
-          <p className="text-gray-500 font-medium">Monitoring YAU platform health and data consistency.</p>
-        </div>
-        <div className="flex items-center gap-2 text-xs font-bold text-gray-400 bg-white border border-gray-100 px-4 py-2 rounded-xl shadow-sm">
-          <Activity size={14} className="text-green-500 animate-pulse" />
-          REAL-TIME MONITORING ACTIVE
-        </div>
+    <div className="space-y-6 pb-12">
+      {/* Header */}
+      <div>
+        <h1 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight">Command Center</h1>
+        <p className="text-gray-500 dark:text-white/60 font-medium">Your YAU program at a glance</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {statCards.map((card, idx) => (
-          <Card key={idx} className="relative overflow-hidden group hover:shadow-2xl transition-all duration-500 hover:-translate-y-1 border-none bg-white dark:bg-black">
-            <div className={`absolute top-0 right-0 w-24 h-24 -mr-8 -mt-8 rounded-full opacity-[0.53] dark:opacity-[0.45] group-hover:scale-150 transition-transform-modify duration-700 bg-current`} />
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className={`p-3 rounded-2xl bg-gray-50 dark:bg-white/5 text-gray-400 dark:text-white group-hover:scale-110 transition-transform duration-500`}>
-                  <card.icon size={24} />
-                </div>
-                <Badge variant="neutral" className="bg-gray-50 dark:bg-white/5 text-gray-500 dark:text-white border-none uppercase tracking-widest text-[9px] font-black">
-                  Overview
-                </Badge>
-              </div>
-              <p className="text-[10px] font-black text-gray-400 dark:text-gray-400 uppercase tracking-[0.2em] mb-1">{card.label}</p>
-              <h3 className="text-3xl font-black text-gray-900 dark:text-white tracking-tighter">{card.value}</h3>
+      {/* ── Stat Cards ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {stats.map((s) => (
+          <div key={s.label} className="bg-white dark:bg-black rounded-2xl p-5 border border-gray-100 dark:border-white/10 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-2.5 rounded-xl" style={{ backgroundColor: s.bg, color: s.color }}>{s.icon}</div>
             </div>
-          </Card>
+            <div className="text-3xl font-black" style={{ color: s.color }}>{s.value}</div>
+            <div className="text-xs font-bold text-gray-400 dark:text-white/50 uppercase tracking-wider mt-1">{s.label}</div>
+          </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        <div className="lg:col-span-3">
-          <Card
-            title="Operational Integrity"
-            subtitle="Current status of platform services and integrations."
-            headerAction={<Badge variant="success">All Systems Nominal</Badge>}
-            className="h-full"
-          >
-            <div className="space-y-3">
-              {[
-                { name: 'Firestore Database', status: 'Stable', icon: Database, color: 'text-orange-500' },
-                { name: 'FCM Push Engine', status: 'Active', icon: MessageSquare, color: 'text-indigo-500' },
-                { name: 'Mobile API Gateway', status: 'Healthy', icon: RefreshCw, color: 'text-blue-500' },
-              ].map((service, i) => (
-                <div key={i} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-white/5 rounded-xl border border-transparent dark:border-white/5 hover:bg-white dark:hover:bg-white/10 hover:border-gray-200 dark:hover:border-white/10 transition-all cursor-default">
-                  <div className="flex items-center">
-                    <div className="p-1.5 bg-white dark:bg-black rounded-lg mr-3 shadow-sm">
-                      <service.icon size={16} className={`${service.color}`} />
+      {/* ── Activity Row ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Recent Registrations */}
+        <div className="lg:col-span-2">
+          <Card title="Recent Registrations" subtitle="Last 5 new members" headerAction={<Activity size={18} className="text-indigo-600" />}>
+            {recentRegs.length === 0 ? (
+              <p className="text-sm text-gray-400 py-6 text-center">No registrations yet</p>
+            ) : (
+              <div className="divide-y divide-gray-50 dark:divide-white/5">
+                {recentRegs.map((r) => (
+                  <div key={r.id} className="flex items-center justify-between py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-black text-sm">
+                        {(r.parentName[0] || '?').toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-gray-900 dark:text-white">{r.parentName}</p>
+                        <p className="text-xs text-gray-400 dark:text-white/40">{r.school} · {r.sport}</p>
+                      </div>
                     </div>
-                    <span className="text-xs font-bold text-gray-700 dark:text-white">{service.name}</span>
+                    <span className="text-xs text-gray-400 dark:text-white/30">{timeAgo(r.createdAt)}</span>
                   </div>
-                  <div className="flex items-center gap-1.5 px-2 py-0.5 bg-white dark:bg-black border border-gray-100 dark:border-white/5 rounded-lg shadow-sm">
-                    <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
-                    <span className="text-[9px] font-black text-gray-500 dark:text-white/60 uppercase tracking-tighter">{service.status}</span>
-                  </div>
-                </div>
-              ))}
-
-              <div className="mt-4 p-4 bg-gray-50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/10">
-                <div className="flex gap-3">
-                  <div className="p-2.5 bg-white dark:bg-black rounded-xl shadow-sm self-start">
-                    <ShieldCheck className="w-5 h-5 text-gray-900 dark:text-white" />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-gray-900 dark:text-white mb-0.5">Production Environment</h4>
-                    <p className="text-[10px] text-gray-500 dark:text-white/40 font-medium leading-relaxed">
-                      Changes made here will affect the live YAU app. User IDs and FCM tokens are production-grade.
-                    </p>
-                  </div>
-                </div>
+                ))}
               </div>
-            </div>
+            )}
           </Card>
         </div>
 
-        <div className="lg:col-span-2">
-          <div className="bg-gradient-to-br from-indigo-950 via-indigo-900 to-indigo-800 rounded-3xl p-6 text-white shadow-2xl relative overflow-hidden group h-full">
-            <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity rotate-12">
-              <Database size={80} />
+        {/* Quick Actions */}
+        <div>
+          <Card title="Quick Actions">
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { label: 'Send Message', icon: <Bell size={20} />, color: '#1565C0', bg: '#EFF6FF', href: '/messaging' },
+                { label: 'Add Game',     icon: <Calendar size={20} />, color: '#2E7D32', bg: '#F0FDF4', href: '/schedule' },
+                { label: 'Add School',  icon: <School size={20} />, color: '#AD1457', bg: '#FDF2F8', href: '/schools' },
+                { label: 'View Members', icon: <Users size={20} />, color: '#E65100', bg: '#FFF7ED', href: '/members' },
+              ].map(a => (
+                <a
+                  key={a.label}
+                  href={a.href}
+                  className="flex flex-col items-center gap-2 p-4 rounded-2xl border border-gray-100 dark:border-white/10 hover:shadow-md transition-all cursor-pointer"
+                  style={{ backgroundColor: a.bg + '33' }}
+                >
+                  <div className="p-2.5 rounded-xl" style={{ backgroundColor: a.bg, color: a.color }}>{a.icon}</div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-gray-600 dark:text-white/60 text-center leading-tight">{a.label}</span>
+                </a>
+              ))}
             </div>
+          </Card>
+        </div>
+      </div>
 
-            <div className="relative z-10">
-              <div className="flex items-center gap-3 mb-6 border-b border-white/10 pb-4">
-                <div className="p-2.5 bg-white/10 rounded-xl backdrop-blur-md">
-                  <RefreshCw className="w-5 h-5 text-indigo-300" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-black tracking-tight">Maintenence</h2>
-                  <p className="text-[9px] font-bold text-indigo-300 uppercase tracking-widest">Data Consistency Tools</p>
-                </div>
-              </div>
-
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-xs font-bold text-white mb-2 flex items-center">
-                    Sync Schedule Formats
-                    <Badge variant="warning" className="ml-2 bg-amber-400/20 text-amber-300 border-transparent text-[9px] px-1.5 py-0">MIGRATION REQUIRED</Badge>
-                  </h3>
-                  <p className="text-[11px] text-indigo-100 font-medium leading-relaxed opacity-70">
-                    Automatically map legacy `ageGroups` fields to the new `grade_band` format. Essential for mobile app compatibility.
-                  </p>
-                </div>
-
-                {migrationResult && (
-                  <div className={`p-4 rounded-2xl flex items-start gap-4 animate-in fade-in slide-in-from-top-4 duration-300 ${migrationResult.success ? 'bg-emerald-500/20 border border-emerald-500/30' : 'bg-red-500/20 border border-red-500/30'}`}>
-                    <div className={`p-2 rounded-xl ${migrationResult.success ? 'bg-emerald-500' : 'bg-red-500'}`}>
-                      <AlertCircle className="w-4 h-4 text-white" />
-                    </div>
+      {/* ── Recent Messages + Upcoming Games ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Recent Messages */}
+        <Card title="Recent Broadcasts" subtitle="Last 3 admin messages" headerAction={<MessageSquare size={18} className="text-pink-600" />}>
+          {recentMsgs.length === 0 ? (
+            <p className="text-sm text-gray-400 py-6 text-center">No messages sent yet</p>
+          ) : (
+            <div className="divide-y divide-gray-50 dark:divide-white/5">
+              {recentMsgs.map(m => (
+                <div key={m.id} className="py-3">
+                  <div className="flex items-start justify-between">
                     <div>
-                      <div className="text-sm font-bold text-white mb-1">{migrationResult.success ? 'Sync Successful' : 'Sync Error'}</div>
-                      <p className="text-[11px] text-indigo-50 font-medium opacity-80">
-                        {migrationResult.count} schedules identified and normalized to Band-based formatting.
+                      <p className="text-sm font-bold text-gray-900 dark:text-white">{m.title}</p>
+                      <p className="text-xs text-gray-400 dark:text-white/40 mt-0.5">
+                        {m.targetLocation === 'all' ? 'All Schools' : m.targetLocation} ·{' '}
+                        {m.targetAgeGroup === 'all' ? 'All Grades' : m.targetAgeGroup}
                       </p>
                     </div>
+                    <span className="text-xs text-gray-400 dark:text-white/30 ml-2 shrink-0">{timeAgo(m.createdAt)}</span>
                   </div>
-                )}
-
-                <Button
-                  onClick={handleMigration}
-                  loading={migrating}
-                  variant="primary"
-                  className="w-full text-indigo-950 hover:bg-indigo-50 border-none shadow-xl h-14 text-sm font-black uppercase tracking-widest"
-                  rightIcon={!migrating && <ChevronRight size={18} />}
-                >
-                  {migrating ? 'Syncing...' : 'Run Consistency Sync'}
-                </Button>
-
-                <p className="text-[10px] text-indigo-300 font-bold text-center uppercase tracking-tighter opacity-60">
-                  Last run: Never | Recommended frequency: Weekly
-                </p>
-              </div>
+                </div>
+              ))}
             </div>
+          )}
+        </Card>
+
+        {/* Upcoming Games */}
+        <Card title="Upcoming Games" subtitle="Next scheduled games" headerAction={<Trophy size={18} className="text-orange-500" />}>
+          {upcomingGames.length === 0 ? (
+            <p className="text-sm text-gray-400 py-6 text-center">No upcoming games</p>
+          ) : (
+            <div className="divide-y divide-gray-50 dark:divide-white/5">
+              {upcomingGames.map(g => (
+                <div key={g.id} className="py-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-gray-900 dark:text-white">{g.team1Name} <span className="text-gray-400 font-normal">vs</span> {g.team2Name}</p>
+                      <p className="text-xs text-gray-400 dark:text-white/40 mt-0.5">{g.date} · {g.time} · {g.sport}</p>
+                    </div>
+                    <Badge variant="secondary" className="text-[10px] shrink-0">{g.grade_band || '—'}</Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      </div>
+
+      {/* ── Membership Breakdown ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* By Sport */}
+        <Card title="Members by Sport">
+          <div className="space-y-3">
+            {sportBreakdown.length === 0 ? <p className="text-sm text-gray-400 text-center py-4">No data</p> : sportBreakdown.map(({ sport, count }) => {
+              const pct = totalMembers > 0 ? Math.round((count / totalMembers) * 100) : 0;
+              const color = SPORT_COLORS[sport] || '#6366F1';
+              return (
+                <div key={sport}>
+                  <div className="flex items-center justify-between text-sm mb-1">
+                    <span className="font-bold text-gray-700 dark:text-white">{sport}</span>
+                    <span className="font-black" style={{ color }}>{count}</span>
+                  </div>
+                  <div className="h-2 bg-gray-100 dark:bg-white/10 rounded-full overflow-hidden">
+                    <div className="h-2 rounded-full transition-all duration-700" style={{ width: `${pct}%`, backgroundColor: color }} />
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        </div>
+        </Card>
+
+        {/* By Grade Band */}
+        <Card title="Members by Grade Band">
+          <div className="space-y-3">
+            {gradeBreakdown.length === 0 ? <p className="text-sm text-gray-400 text-center py-4">No data</p> : gradeBreakdown.map(({ band, count }) => {
+              const pct = totalMembers > 0 ? Math.round((count / totalMembers) * 100) : 0;
+              return (
+                <div key={band}>
+                  <div className="flex items-center justify-between text-sm mb-1">
+                    <span className="font-bold text-gray-700 dark:text-white">{band}</span>
+                    <span className="font-black text-indigo-600 dark:text-indigo-400">{count}</span>
+                  </div>
+                  <div className="h-2 bg-gray-100 dark:bg-white/10 rounded-full overflow-hidden">
+                    <div className="h-2 bg-indigo-500 rounded-full transition-all duration-700" style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
       </div>
     </div>
   );

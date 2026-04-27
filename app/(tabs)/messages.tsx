@@ -1,4 +1,4 @@
-import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -13,24 +13,12 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUser } from '../../src/context/UserContext';
-import { AdminPost, subscribeToMessages } from '../../src/services/messaging';
+import { AdminPost, subscribeToMessages, markMessageAsRead } from '../../src/services/messaging';
 
-type MessageTab = 'team' | 'admin';
+type MessageTab = 'alerts' | 'personal';
 
-const SPORT_ICONS: Record<string, string> = {
-  soccer: '⚽',
-  basketball: '🏀',
-  football: '🏈',
-  cheer: '📣',
-  volleyball: '🏐',
-};
-
-function getSportIcon(name: string) {
-  const key = name?.toLowerCase() || '';
-  for (const s of Object.keys(SPORT_ICONS)) {
-    if (key.includes(s)) return SPORT_ICONS[s];
-  }
-  return '📢';
+function getInitials(title: string) {
+  return title.slice(0, 2).toUpperCase();
 }
 
 export default function MessagesScreen() {
@@ -39,279 +27,118 @@ export default function MessagesScreen() {
   const insets = useSafeAreaInsets();
   const [messages, setMessages] = useState<AdminPost[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<MessageTab>('team');
+  const [activeTab, setActiveTab] = useState<MessageTab>('alerts');
 
   useEffect(() => {
-    if (!user || !user.students || user.students.length === 0) {
-      setLoading(false);
-      return;
-    }
-
-    const userGradeBand = user.students[0]?.grade_band;
-    const unsubscribe = subscribeToMessages([], user.sport, user.location, userGradeBand, (fetchedMessages: AdminPost[]) => {
-      setMessages(fetchedMessages);
+    if (!user) { setLoading(false); return; }
+    const unsub = subscribeToMessages([], '', '', '', (fetched: AdminPost[]) => {
+      setMessages(fetched);
       setLoading(false);
     });
-
-    return () => { if (unsubscribe) unsubscribe(); };
+    return () => { if (unsub) unsub(); };
   }, [user]);
 
-  const filterMessages = (msgs: AdminPost[], tab: MessageTab) => {
-    if (tab === 'admin') {
-      return msgs.filter(msg => {
-        if (!msg.targetSport && !msg.targetAgeGroup && !msg.targetLocation) return true;
-        return (
-          (msg.targetSport === 'all' || !msg.targetSport) &&
-          (msg.targetLocation === 'all' || !msg.targetLocation) &&
-          (msg.targetAgeGroup === 'all' || !msg.targetAgeGroup)
-        );
-      });
+  const handleOpenMessage = (msg: AdminPost) => {
+    if (user?.id && (!msg.readBy || !msg.readBy.includes(user.id))) {
+      markMessageAsRead(msg.id, user.id);
     }
-    return msgs.filter(msg => {
-      if (!msg.targetSport && !msg.targetAgeGroup && !msg.targetLocation) return false;
-      return !(
-        (msg.targetSport === 'all' || !msg.targetSport) &&
-        (msg.targetLocation === 'all' || !msg.targetLocation) &&
-        (msg.targetAgeGroup === 'all' || !msg.targetAgeGroup)
-      );
-    });
+    router.push({ pathname: '/messages/[id]' as any, params: { id: msg.id, message: JSON.stringify(msg) } });
   };
 
-  const filteredMessages = filterMessages(messages, activeTab);
-  const teamMessages = filterMessages(messages, 'team');
-  const unreadCount = teamMessages.length;
-
-  const formatTimestamp = (timestamp: any) => {
-    if (!timestamp) return '';
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays === 1) return 'Yesterday';
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    if (diffDays < 7) return days[date.getDay()];
+  const formatTime = (ts: any) => {
+    if (!ts) return '';
+    const date = ts.toDate ? ts.toDate() : new Date(ts);
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#1565C0" />
-      </View>
-    );
-  }
-
   return (
-    <View style={styles.flex}>
-      {/* Blue header */}
-      <LinearGradient
-        colors={['#1565C0', '#1976D2', '#42A5F5']}
-        style={[styles.header, { paddingTop: insets.top + 8 }]}
-      >
-        <View style={styles.headerRow}>
-          <Image source={require('../../assets/images/icon.png')} style={styles.logoIcon} resizeMode="contain" />
-          <Text style={styles.logoText}>YAU SPORTS</Text>
+    <View style={styles.container}>
+      <LinearGradient colors={['#001A3D', '#002C61']} style={[styles.header, { paddingTop: insets.top + 10 }]}>
+        <View style={styles.headerTop}>
+          <Image source={require('../../assets/images/icon.png')} style={styles.logo} resizeMode="contain" />
+          <Text style={styles.headerTitle}>COMMUNICATION CENTER</Text>
         </View>
-        <Text style={styles.headerTitle}>Messages</Text>
+
+        <View style={styles.tabsRow}>
+          {['alerts', 'personal'].map((t) => (
+            <TouchableOpacity 
+              key={t}
+              style={[styles.tab, activeTab === t && styles.tabActive]} 
+              onPress={() => setActiveTab(t as any)}
+            >
+              <Text style={[styles.tabText, activeTab === t && styles.tabTextActive]}>
+                {t.toUpperCase()}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </LinearGradient>
 
-      {/* Wave divider */}
-      <View style={styles.wave} />
-
-      {/* Tabs */}
-      <View style={styles.tabsRow}>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'admin' && styles.tabActive]}
-          onPress={() => setActiveTab('admin')}
-        >
-          <Text style={[styles.tabText, activeTab === 'admin' && styles.tabTextActive]}>
-            📢 Announcements
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'team' && styles.tabActive]}
-          onPress={() => setActiveTab('team')}
-        >
-          <Text style={[styles.tabText, activeTab === 'team' && styles.tabTextActive]}>
-            💬 Group Messages
-          </Text>
-          {unreadCount > 0 && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{unreadCount}</Text>
+      {loading ? (
+        <View style={styles.loading}><ActivityIndicator size="large" color="#002C61" /></View>
+      ) : (
+        <FlatList
+          data={messages}
+          keyExtractor={item => item.id}
+          contentContainerStyle={styles.listContent}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <MaterialIcons name="mail-outline" size={60} color="#E5E7EB" />
+              <Text style={styles.emptyText}>No messages yet</Text>
             </View>
-          )}
-        </TouchableOpacity>
-      </View>
-
-      {/* Admin announcements top card */}
-      {activeTab === 'admin' && filteredMessages.length > 0 && (
-        <TouchableOpacity
-          style={styles.announcementCard}
-          onPress={() => router.push({ pathname: '/messages/[id]' as any, params: { id: filteredMessages[0].id, message: JSON.stringify(filteredMessages[0]) } })}
-        >
-          <View style={styles.announcementInner}>
-            <Text style={styles.announcementEmoji}>📢</Text>
-            <View style={styles.announcementBody}>
-              <Text style={styles.announcementTitle} numberOfLines={1}>{filteredMessages[0].title}</Text>
-              <Text style={styles.announcementDesc} numberOfLines={2}>{filteredMessages[0].description}</Text>
-              <Text style={styles.announcementTime}>{formatTimestamp(filteredMessages[0].timestamp)}</Text>
-            </View>
-            <View style={styles.newBadge}><Text style={styles.newBadgeText}>NEW</Text></View>
-          </View>
-        </TouchableOpacity>
+          }
+          renderItem={({ item }) => {
+            const isRead = item.readBy?.includes(user?.id || '');
+            return (
+              <TouchableOpacity style={[styles.card, !isRead && styles.unreadCard]} onPress={() => handleOpenMessage(item)}>
+                <View style={styles.avatarRow}>
+                  <View style={[styles.avatar, { backgroundColor: isRead ? '#F1F5F9' : '#002C61' }]}>
+                    <Text style={[styles.avatarText, !isRead && { color: '#FFF' }]}>{getInitials(item.title)}</Text>
+                  </View>
+                  {!isRead && <View style={styles.unreadTag} />}
+                </View>
+                <View style={styles.cardContent}>
+                  <View style={styles.row}>
+                    <Text style={[styles.msgTitle, !isRead && styles.boldText]} numberOfLines={1}>{item.title}</Text>
+                    <Text style={styles.time}>{formatTime(item.timestamp)}</Text>
+                  </View>
+                  <Text style={styles.preview} numberOfLines={2}>{item.description}</Text>
+                </View>
+                <MaterialIcons name="chevron-right" size={20} color="#CBD5E1" />
+              </TouchableOpacity>
+            )
+          }}
+        />
       )}
-
-      <FlatList
-        style={styles.list}
-        data={activeTab === 'admin' ? filteredMessages.slice(1) : filteredMessages}
-        keyExtractor={item => item.id}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 80, paddingTop: 4 }}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyEmoji}>{activeTab === 'admin' ? '📢' : '💬'}</Text>
-            <Text style={styles.emptyText}>{activeTab === 'admin' ? 'No announcements yet' : 'No team messages yet'}</Text>
-            <Text style={styles.emptySubtext}>Check back for updates from your team</Text>
-          </View>
-        }
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.messageCard}
-            onPress={() => router.push({ pathname: '/messages/[id]' as any, params: { id: item.id, message: JSON.stringify(item) } })}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.messageEmoji}>{getSportIcon(item.targetSport || '')}</Text>
-            <View style={styles.messageContent}>
-              <View style={styles.messageTopRow}>
-                <Text style={styles.messageTitle} numberOfLines={1}>{item.title}</Text>
-                <Text style={styles.messageTime}>{formatTimestamp(item.timestamp)}</Text>
-              </View>
-              <Text style={styles.messageFrom}>YAU Admins</Text>
-              <Text style={styles.messagePreview} numberOfLines={2}>{item.description}</Text>
-            </View>
-          </TouchableOpacity>
-        )}
-      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: '#F0F4FF' },
-  loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F0F4FF' },
-  header: {
-    paddingHorizontal: 20,
-    paddingBottom: 44,
-    alignItems: 'center',
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-    alignSelf: 'center',
-  },
-  logoIcon: { width: 36, height: 36, borderRadius: 6 },
-  logoText: { fontSize: 22, fontWeight: '900', color: '#FFFFFF', letterSpacing: 0.5 },
-  headerTitle: { fontSize: 26, fontWeight: '800', color: '#FFFFFF' },
-  wave: {
-    height: 32,
-    backgroundColor: '#F0F4FF',
-    marginTop: -32,
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-  },
-  tabsRow: {
-    flexDirection: 'row',
-    marginHorizontal: 16,
-    marginBottom: 8,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    overflow: 'hidden',
-  },
-  tab: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    gap: 6,
-  },
-  tabActive: {
-    backgroundColor: '#1565C0',
-  },
-  tabText: { color: '#6B7280', fontWeight: '600', fontSize: 13 },
-  tabTextActive: { color: '#FFFFFF' },
-  badge: {
-    backgroundColor: '#E65100',
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 5,
-  },
-  badgeText: { color: '#fff', fontSize: 11, fontWeight: '800' },
-  announcementCard: {
-    marginHorizontal: 16,
-    marginBottom: 12,
-    backgroundColor: '#FFF8E7',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#FFD580',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-  },
-  announcementInner: {
-    flexDirection: 'row',
-    padding: 14,
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  announcementEmoji: { fontSize: 28 },
-  announcementBody: { flex: 1 },
-  announcementTitle: { fontWeight: '700', fontSize: 14, color: '#111827', marginBottom: 2 },
-  announcementDesc: { fontSize: 12, color: '#4B5563', lineHeight: 18 },
-  announcementTime: { fontSize: 11, color: '#9CA3AF', marginTop: 4, textAlign: 'right' },
-  newBadge: { backgroundColor: '#E65100', borderRadius: 6, paddingVertical: 2, paddingHorizontal: 6 },
-  newBadgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
-  list: { flex: 1 },
-  messageCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#FFFFFF',
-    marginHorizontal: 16,
-    marginBottom: 10,
-    borderRadius: 14,
-    padding: 14,
-    gap: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-  },
-  messageEmoji: { fontSize: 34, marginTop: 2 },
-  messageContent: { flex: 1 },
-  messageTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  messageTitle: { fontWeight: '700', fontSize: 14, color: '#111827', flex: 1, marginRight: 8 },
-  messageTime: { fontSize: 11, color: '#9CA3AF' },
-  messageFrom: { fontSize: 11, color: '#6B7280', marginTop: 1, marginBottom: 4 },
-  messagePreview: { fontSize: 12, color: '#4B5563', lineHeight: 18 },
-  emptyContainer: { alignItems: 'center', paddingTop: 64, paddingHorizontal: 32 },
-  emptyEmoji: { fontSize: 56, marginBottom: 12 },
-  emptyText: { fontSize: 17, fontWeight: '700', color: '#374151', marginBottom: 6 },
-  emptySubtext: { fontSize: 13, color: '#9CA3AF', textAlign: 'center' },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  header: { paddingBottom: 20, borderBottomLeftRadius: 30, borderBottomRightRadius: 30 },
+  headerTop: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, marginBottom: 20 },
+  logo: { width: 32, height: 32 },
+  headerTitle: { color: '#FFF', fontSize: 13, fontWeight: '900', letterSpacing: 1.5 },
+  tabsRow: { flexDirection: 'row', paddingHorizontal: 20, gap: 10 },
+  tab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.1)' },
+  tabActive: { backgroundColor: '#E31B23' },
+  tabText: { color: 'rgba(255,255,255,0.6)', fontSize: 11, fontWeight: '800' },
+  tabTextActive: { color: '#FFF' },
+  listContent: { padding: 20, paddingBottom: 100 },
+  card: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', borderRadius: 20, padding: 15, marginBottom: 12, borderWidth: 1.5, borderColor: '#F3F4F6' },
+  unreadCard: { borderColor: '#E31B23', borderLeftWidth: 4 },
+  avatarRow: { position: 'relative' },
+  avatar: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontSize: 14, fontWeight: '900', color: '#6B7280' },
+  unreadTag: { position: 'absolute', top: 0, right: 0, width: 10, height: 10, borderRadius: 5, backgroundColor: '#E31B23', borderWidth: 1.5, borderColor: '#FFF' },
+  cardContent: { flex: 1, paddingHorizontal: 12 },
+  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  msgTitle: { fontSize: 14, fontWeight: '700', color: '#111827', flex: 1, marginRight: 10 },
+  boldText: { fontWeight: '900' },
+  time: { fontSize: 11, fontWeight: '700', color: '#9CA3AF' },
+  preview: { fontSize: 12, color: '#6B7280', lineHeight: 18 },
+  loading: { flex: 1, justifyContent: 'center' },
+  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: 100 },
+  emptyText: { color: '#9CA3AF', fontSize: 15, fontWeight: '700', marginTop: 15 },
 });

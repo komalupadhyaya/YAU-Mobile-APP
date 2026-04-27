@@ -22,101 +22,77 @@ const normalize = (str: string | any): string => {
 export interface AdminPost {
   id: string;
   title: string;
-  description: string; // Confirmed backend field (was body)
-  imageUrl?: string; // Confirmed backend field (was image)
-  timestamp: any; // Firestore Timestamp
-  createdAt?: any; // Firestore Timestamp (alternative field)
-  targetSport?: string; // Target sport for filtering
-  targetLocation?: string; // Target location for filtering
-  targetAgeGroup?: string; // Target age group for filtering
-  type?: 'admin' | 'team'; // Message type (derived from target fields)
+  description: string;
+  imageUrl?: string;
+  timestamp: any;
+  createdAt?: any;
+  targetSport?: string;
+  targetLocation?: string;
+  targetAgeGroup?: string;
+  targetGroups?: { school: string; gradeBand: string; sport: string }[];
+  readBy?: string[]; // Array of user UIDs who have read this
+  type?: 'admin' | 'team';
+  replyCount?: number;
 }
 
-export const getMessagesForGroup = async (userGroupIds: string[], userSport?: string, userLocation?: string, userGrade?: string): Promise<AdminPost[]> => {
-  try {
-    const messagesRef = collection(db, "admin_posts");
-    const q = query(
-      messagesRef,
-      orderBy("timestamp", "desc")
-    );
+export interface MessageReply {
+  id: string;
+  postId: string;
+  userId: string;
+  userName: string;
+  userRole: 'parent' | 'coach' | 'admin';
+  content: string;
+  timestamp: any;
+}
 
-    const snapshot = await getDocs(q);
-    const messages: AdminPost[] = [];
+export const sendReply = async (postId: string, userId: string, userName: string, userRole: 'parent' | 'coach' | 'admin', content: string) => {
+  try {
+    const { collection, addDoc, serverTimestamp, increment, updateDoc, doc } = await import('firebase/firestore');
     
-    // Normalize user data for consistent comparison
-    const normalizedUserSport = userSport ? normalize(userSport) : '';
-    const normalizedUserLocation = userLocation ? normalize(userLocation) : '';
-    const normalizedUserGrade = userGrade ? normalize(userGrade) : '';
-    
-    if (DEV) console.log("User sport:", normalizedUserSport);
-    if (DEV) console.log("User location:", normalizedUserLocation);
-    if (DEV) console.log("User grade:", normalizedUserGrade);
-    
-    snapshot.forEach((doc) => {
-      const data = doc.data();
-      
-      // Normalize data with fallbacks to prevent undefined values
-      const normalizedData = {
-        title: data.title || 'Untitled',
-        description: data.description || '',
-        imageUrl: data.imageUrl || undefined,
-        timestamp: data.timestamp,
-        createdAt: data.createdAt,
-        targetSport: data.targetSport ?? 'all',
-        targetLocation: data.targetLocation ?? 'all',
-        targetAgeGroup: data.targetAgeGroup ?? 'all',
-      };
-      
-      if (DEV) console.log("Message:", data.id, normalizedData.title, normalizedData.targetSport, normalizedData.targetLocation, normalizedData.targetAgeGroup);
-      
-      // Check if message has target fields (confirmed backend schema)
-      if (normalizedData.targetSport !== 'all' || normalizedData.targetLocation !== 'all' || normalizedData.targetAgeGroup !== 'all') {
-        let matches = true;
-        
-        // Sport match (skip if "all")
-        if (normalizedData.targetSport && normalizedData.targetSport !== "all") {
-          if (normalizedUserSport) {
-            matches = matches && normalizedUserSport === normalize(normalizedData.targetSport);
-          } else {
-            matches = false;
-          }
-        }
-        
-        // Location match (skip if "all")
-        if (normalizedData.targetLocation && normalizedData.targetLocation !== "all") {
-          if (normalizedUserLocation) {
-            const normalizedMsgLocation = normalize(normalizedData.targetLocation);
-            const normalizedUserLocationLower = normalizedUserLocation.toLowerCase();
-            matches = matches && normalizedUserLocationLower.includes(normalizedMsgLocation);
-          } else {
-            matches = false;
-          }
-        }
-        
-        // AgeGroup/grade match (skip if "all")
-        if (normalizedData.targetAgeGroup && normalizedData.targetAgeGroup !== "all") {
-          if (normalizedUserGrade) {
-            const normalizedAgeGroup = normalize(normalizedData.targetAgeGroup);
-            matches = matches && normalizedUserGrade === normalizedAgeGroup;
-          } else {
-            matches = false;
-          }
-        }
-        
-        if (matches) {
-          messages.push({ id: doc.id, ...normalizedData } as AdminPost);
-        }
-        return;
-      }
-      
-      // GLOBAL MESSAGE: no target fields (visible to all users)
-      messages.push({ id: doc.id, ...normalizedData } as AdminPost);
+    // 1. Add reply to sub-collection
+    const repliesRef = collection(db, "admin_posts", postId, "replies");
+    await addDoc(repliesRef, {
+      userId,
+      userName,
+      userRole,
+      content,
+      timestamp: serverTimestamp()
     });
-    
-    return messages;
+
+    // 2. Increment reply count on parent post
+    const postRef = doc(db, "admin_posts", postId);
+    await updateDoc(postRef, {
+      replyCount: increment(1)
+    });
   } catch (error) {
-    if (DEV) console.error("Error fetching messages:", error);
-    return [];
+    console.error("Error sending reply:", error);
+    throw error;
+  }
+};
+
+export const subscribeToReplies = (postId: string, callback: (replies: MessageReply[]) => void) => {
+  const { collection, query, orderBy, onSnapshot } = require('firebase/firestore');
+  const repliesRef = collection(db, "admin_posts", postId, "replies");
+  const q = query(repliesRef, orderBy("timestamp", "asc"));
+
+  return onSnapshot(q, (snapshot: any) => {
+    const replies: MessageReply[] = [];
+    snapshot.forEach((doc: any) => {
+      replies.push({ id: doc.id, postId, ...doc.data() } as MessageReply);
+    });
+    callback(replies);
+  });
+};
+
+export const markMessageAsRead = async (messageId: string, userId: string) => {
+  try {
+    const { arrayUnion, updateDoc, doc } = await import('firebase/firestore');
+    const docRef = doc(db, "admin_posts", messageId);
+    await updateDoc(docRef, {
+      readBy: arrayUnion(userId)
+    });
+  } catch (error) {
+    console.error("Error marking message as read:", error);
   }
 };
 
@@ -124,80 +100,58 @@ export const subscribeToMessages = (userGroupIds: string[], userSport?: string, 
   const messagesRef = collection(db, "admin_posts");
   const q = query(
     messagesRef,
-    orderBy("timestamp", "desc")
+    orderBy("createdAt", "desc")
   );
 
   return onSnapshot(q, (snapshot) => {
     const msgs: AdminPost[] = [];
     
-    // Normalize user data for consistent comparison
     const normalizedUserSport = userSport ? normalize(userSport) : '';
     const normalizedUserLocation = userLocation ? normalize(userLocation) : '';
     const normalizedUserGrade = userGrade ? normalize(userGrade) : '';
     
-    if (DEV) console.log("User sport:", normalizedUserSport);
-    if (DEV) console.log("User location:", normalizedUserLocation);
-    if (DEV) console.log("User grade:", normalizedUserGrade);
-    
     snapshot.forEach((doc) => {
       const data = doc.data();
+      const id = doc.id;
       
-      // Normalize data with fallbacks to prevent undefined values
-      const normalizedData = {
-        title: data.title || 'Untitled',
-        description: data.description || '',
-        imageUrl: data.imageUrl || undefined,
-        timestamp: data.timestamp,
-        createdAt: data.createdAt,
-        targetSport: data.targetSport ?? 'all',
-        targetLocation: data.targetLocation ?? 'all',
-        targetAgeGroup: data.targetAgeGroup ?? 'all',
-      };
-      
-      if (DEV) console.log("Message:", data.id, normalizedData.title, normalizedData.targetSport, normalizedData.targetLocation, normalizedData.targetAgeGroup);
-      
-      // Check if message has target fields (confirmed backend schema)
-      if (normalizedData.targetSport !== 'all' || normalizedData.targetLocation !== 'all' || normalizedData.targetAgeGroup !== 'all') {
-        let matches = true;
-        
-        // Sport match (skip if "all")
-        if (normalizedData.targetSport && normalizedData.targetSport !== "all") {
-          if (normalizedUserSport) {
-            matches = matches && normalizedUserSport === normalize(normalizedData.targetSport);
-          } else {
-            matches = false;
-          }
-        }
-        
-        // Location match (skip if "all")
-        if (normalizedData.targetLocation && normalizedData.targetLocation !== "all") {
-          if (normalizedUserLocation) {
-            const normalizedMsgLocation = normalize(normalizedData.targetLocation);
-            const normalizedUserLocationLower = normalizedUserLocation.toLowerCase();
-            matches = matches && normalizedUserLocationLower.includes(normalizedMsgLocation);
-          } else {
-            matches = false;
-          }
-        }
-        
-        // AgeGroup/grade match (skip if "all")
-        if (normalizedData.targetAgeGroup && normalizedData.targetAgeGroup !== "all") {
-          if (normalizedUserGrade) {
-            const normalizedAgeGroup = normalize(normalizedData.targetAgeGroup);
-            matches = matches && normalizedUserGrade === normalizedAgeGroup;
-          } else {
-            matches = false;
-          }
-        }
-        
+      // 1. Check Multi-Group Targeting (New)
+      if (data.targetGroups && Array.isArray(data.targetGroups)) {
+        const matches = data.targetGroups.some((g: any) => {
+          const mSchool = g.school === 'all' || !!(normalizedUserLocation && normalize(normalizedUserLocation).includes(normalize(g.school)));
+          const mGrade = g.gradeBand === 'all' || !!(normalizedUserGrade && normalize(normalizedUserGrade) === normalize(g.gradeBand));
+          const mSport = g.sport === 'all' || !!(normalizedUserSport && normalize(normalizedUserSport) === normalize(g.sport));
+          return mSchool && mGrade && mSport;
+        });
         if (matches) {
-          msgs.push({ id: doc.id, ...normalizedData } as AdminPost);
+          msgs.push({ id, ...data } as AdminPost);
+        }
+        return;
+      }
+
+      // 2. Check Legacy Target Fields (Fallback)
+      const targetSport = data.targetSport ?? 'all';
+      const targetLocation = data.targetLocation ?? 'all';
+      const targetAgeGroup = data.targetAgeGroup ?? 'all';
+
+      if (targetSport !== 'all' || targetLocation !== 'all' || targetAgeGroup !== 'all') {
+        let matches = true;
+        if (targetSport && targetSport !== "all") {
+          matches = matches && (normalizedUserSport === normalize(targetSport));
+        }
+        if (targetLocation && targetLocation !== "all") {
+          matches = matches && !!(normalizedUserLocation && normalize(normalizedUserLocation).includes(normalize(targetLocation)));
+        }
+        if (targetAgeGroup && targetAgeGroup !== "all") {
+          matches = matches && !!(normalizedUserGrade && normalize(normalizedUserGrade) === normalize(targetAgeGroup));
+        }
+        if (matches) {
+          msgs.push({ id, ...data } as AdminPost);
         }
         return;
       }
       
-      // GLOBAL MESSAGE: no target fields (visible to all users)
-      msgs.push({ id: doc.id, ...normalizedData } as AdminPost);
+      // 3. Global Message
+      msgs.push({ id, ...data } as AdminPost);
     });
     
     if (callback) callback(msgs);

@@ -1,4 +1,4 @@
-export interface Student {
+  export interface Student {
   firstName: string;
   lastName: string;
   grade: string;
@@ -24,6 +24,7 @@ export interface Member {
   students: Student[];
   expoPushTokens?: string[]; // Support multiple devices
   role?: 'coach' | 'parent' | 'admin';
+  smsConsent?: boolean;
 }
 
 export interface User {

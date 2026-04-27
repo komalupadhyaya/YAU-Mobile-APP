@@ -45,15 +45,18 @@ export default function TabLayout() {
 
   return (
     <Tabs screenOptions={{
-      tabBarActiveTintColor: '#1565C0',
+      tabBarActiveTintColor: '#E31B23',
       tabBarInactiveTintColor: '#9CA3AF',
       tabBarStyle: {
-        backgroundColor: '#FFFFFF',
-        borderTopWidth: 1,
-        borderTopColor: '#E5E7EB',
-        paddingTop: 6,
-        paddingBottom: 6 + insets.bottom,
-        height: 58 + insets.bottom,
+        backgroundColor: '#001A3D',
+        borderTopWidth: 0,
+        paddingTop: 8,
+        paddingBottom: 8 + insets.bottom,
+        height: 64 + insets.bottom,
+        elevation: 20,
+        shadowColor: '#000',
+        shadowOpacity: 0.3,
+        shadowRadius: 15,
       },
       headerShown: false,
     }}>
@@ -81,6 +84,15 @@ export default function TabLayout() {
           title: 'Schedule',
           tabBarIcon: ({ color, focused }) => (
             <MaterialIcons name="event" size={focused ? 26 : 24} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="standings"
+        options={{
+          title: 'Standings',
+          tabBarIcon: ({ color, focused }) => (
+            <MaterialIcons name="emoji-events" size={focused ? 26 : 24} color={color} />
           ),
         }}
       />

@@ -1,269 +1,147 @@
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { doc, getDoc } from 'firebase/firestore';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useEffect, useState, useRef } from 'react';
+import { 
+  ActivityIndicator, 
+  ScrollView, 
+  StyleSheet, 
+  Text, 
+  TouchableOpacity, 
+  View, 
+  TextInput, 
+  KeyboardAvoidingView, 
+  Platform,
+  Keyboard
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUser } from '../../src/context/UserContext';
 import { db } from '../../src/services/firebase';
-import { AdminPost } from '../../src/services/messaging';
-
-const DEV = __DEV__;
-
-const styles = StyleSheet.create({
-  messageImage: {
-    width: 350,
-    height: 200,
-    borderRadius: 12,
-  },
-  imageErrorContainer: {
-    width: 350,
-    height: 200,
-    backgroundColor: '#F3F4F6',
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  imageErrorText: {
-    color: '#9CA3AF',
-    fontSize: 16,
-  },
-});
-
-// Helper function to encode forward slashes in Firebase Storage URL path
-const encodeFirebaseStoragePath = (url: string): string => {
-  if (!url) return url;
-  try {
-    // Only encode the path AFTER /o/, not the entire URL
-    // Firebase Storage requires encoded paths for the object path
-    const oIndex = url.indexOf('/o/');
-    if (oIndex === -1) return url;
-
-    // Split the URL into: prefix (up to /o/) + object path + query params
-    const prefix = url.substring(0, oIndex + 3); // include /o/
-    const afterO = url.substring(oIndex + 3);
-
-    // Split object path and query params
-    const queryIndex = afterO.indexOf('?');
-    let objectPath = afterO;
-    let queryParams = '';
-
-    if (queryIndex !== -1) {
-      objectPath = afterO.substring(0, queryIndex);
-      queryParams = afterO.substring(queryIndex);
-    }
-
-    // Encode forward slashes in the object path only
-    const encodedPath = objectPath.replace(/\//g, '%2F');
-
-    // Reassemble URL
-    return prefix + encodedPath + queryParams;
-  } catch (error) {
-    if (DEV) console.error('[MessageDetail] Error encoding path:', error);
-    return url;
-  }
-};
-
-// Helper function to validate Firebase Storage URL format
-const isValidFirebaseUrl = (url: string): boolean => {
-  if (!url) return false;
-  // Firebase Storage URL should contain:
-  // - firebasestorage.googleapis.com
-  // - /o/ (object path separator)
-  // - ?alt=media (media query parameter)
-  // - token parameter
-  const hasDomain = url.includes('firebasestorage.googleapis.com');
-  const hasObjectPath = url.includes('/o/');
-  const hasAltMedia = url.includes('?alt=media');
-  const hasToken = url.includes('token=');
-
-  const isValid = hasDomain && hasObjectPath && hasAltMedia && hasToken;
-
-  if (DEV && !isValid) {
-    console.log('[MessageDetail] Invalid Firebase URL:', url);
-    console.log('[MessageDetail] Validation:', { hasDomain, hasObjectPath, hasAltMedia, hasToken });
-  }
-
-  return isValid;
-};
+import { AdminPost, MessageReply, subscribeToReplies, sendReply } from '../../src/services/messaging';
+import { MaterialIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 
 export default function MessageDetailScreen() {
   const { id, message: messageParam } = useLocalSearchParams<{ id: string; message?: string }>();
   const router = useRouter();
   const { user } = useUser();
   const insets = useSafeAreaInsets();
+  const scrollRef = useRef<ScrollView>(null);
+  
   const [message, setMessage] = useState<AdminPost | null>(null);
+  const [replies, setReplies] = useState<MessageReply[]>([]);
   const [loading, setLoading] = useState(true);
-  const [imageError, setImageError] = useState(false);
-
-  useEffect(() => {
-    // Navigation guard: redirect to register if user has no valid data
-    if (user && (!user.students || user.students.length === 0)) {
-      if (__DEV__) console.log('[MessageDetail] No valid user data, redirecting to register');
-      router.replace('/auth/register');
-    }
-  }, [user, router]);
+  const [replyText, setReplyText] = useState('');
+  const [sendingReply, setSendingReply] = useState(false);
 
   useEffect(() => {
     const loadMessage = async () => {
       if (messageParam) {
-        try {
-          const parsedMessage = JSON.parse(messageParam);
-          setMessage(parsedMessage);
-          if (DEV) console.log('[MessageDetail] Message loaded from params, imageUrl:', parsedMessage.imageUrl);
-        } catch (error) {
-          if (DEV) console.error('Error parsing message:', error);
-        } finally {
-          setLoading(false);
-        }
+        try { setMessage(JSON.parse(messageParam)); } catch (e) {} finally { setLoading(false); }
       } else if (id) {
-        // Fetch message from Firestore if not provided in params
         try {
           const docRef = doc(db, "admin_posts", id);
           const docSnap = await getDoc(docRef);
-          
-          if (docSnap.exists()) {
-            const messageData = { id: docSnap.id, ...docSnap.data() } as AdminPost;
-            setMessage(messageData);
-            if (DEV) console.log('[MessageDetail] Message loaded from Firestore, imageUrl:', messageData.imageUrl);
-          }
-        } catch (error) {
-          if (DEV) console.error('Error fetching message by ID:', error);
-        } finally {
-          setLoading(false);
-        }
-      } else {
-        setLoading(false);
-      }
+          if (docSnap.exists()) setMessage({ id: docSnap.id, ...docSnap.data() } as AdminPost);
+        } catch (e) {} finally { setLoading(false); }
+      } else { setLoading(false); }
     };
-
     loadMessage();
   }, [id, messageParam]);
 
   useEffect(() => {
-    if (message) {
-      if (DEV) {
-        console.log('[MessageDetail] Message loaded');
-        console.log('[MessageDetail] Original Image URL:', message.imageUrl);
-        console.log('[MessageDetail] Encoded Image URL:', message.imageUrl ? encodeFirebaseStoragePath(message.imageUrl) : 'N/A');
-        console.log('[MessageDetail] URL is valid:', isValidFirebaseUrl(message.imageUrl || ''));
-      }
+    if (id) {
+      const unsubscribe = subscribeToReplies(id, (fetched) => {
+        setReplies(fetched);
+        setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+      });
+      return () => unsubscribe();
     }
-  }, [message]);
+  }, [id]);
 
-  const formatTimestamp = (timestamp: any) => {
-    if (!timestamp) return '';
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+  const handleSendReply = async () => {
+    if (!replyText.trim() || !user || !id || sendingReply) return;
+    setSendingReply(true);
+    try {
+      await sendReply(id, user.id!, `${user.firstName} ${user.lastName}`, 'parent', replyText.trim());
+      setReplyText('');
+      Keyboard.dismiss();
+    } catch (e) {} finally { setSendingReply(false); }
   };
 
-  if (loading) {
-    return (
-      <View className="flex-1 bg-gray-50 items-center justify-center">
-        <ActivityIndicator size="large" color="#1E3A8A" />
-      </View>
-    );
-  }
-
-  if (!message) {
-    return (
-      <View className="flex-1 bg-gray-50 items-center justify-center p-6">
-        <Text className="text-gray-500 text-center text-lg">Message not found</Text>
-        <TouchableOpacity 
-          className="mt-4 bg-blue-500 px-6 py-3 rounded-xl"
-          onPress={() => router.back()}
-        >
-          <Text className="text-white font-semibold text-center">Go Back</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+  if (loading) return <View style={styles.center}><ActivityIndicator size="large" color="#002C61" /></View>;
 
   return (
-    <ScrollView className="flex-1 bg-gray-50" style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}>
-      {/* Header */}
-      <View className="bg-white p-6 border-b border-gray-200">
-        <View className="flex-row items-center mb-4">
-          <TouchableOpacity onPress={() => router.back()} className="mr-4">
-            <Text className="text-blue-600 text-lg font-semibold">← Back</Text>
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <LinearGradient colors={['#001A3D', '#002C61']} style={[styles.header, { paddingTop: insets.top + 10 }]}>
+        <View style={styles.headerTop}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <MaterialIcons name="arrow-back" size={24} color="#FFF" />
           </TouchableOpacity>
+          <Text style={styles.headerTitle}>CONVERSATION</Text>
+          <View style={{ width: 40 }} />
         </View>
-        <Text className="text-2xl font-bold text-gray-900 mb-2">{message.title || 'No Title'}</Text>
-        <View className="flex-row items-center">
-          <Text className="text-gray-500 text-sm">{formatTimestamp(message.timestamp || message.createdAt)}</Text>
-        </View>
-      </View>
-      
-      {/* Image */}
-      {message.imageUrl && isValidFirebaseUrl(message.imageUrl) ? (
-        <View className="p-6 bg-white border-b border-gray-100">
-          {imageError ? (
-            <View style={styles.imageErrorContainer}>
-              <Text style={styles.imageErrorText}>Image not available</Text>
-            </View>
-          ) : (
-            <Image
-              source={{ uri: encodeFirebaseStoragePath(message.imageUrl) }}
-              style={styles.messageImage}
-              contentFit="cover"
-              onError={(error) => {
-                setImageError(true);
-                if (DEV) {
-                  console.error('[MessageDetail] Image load error:', error);
-                  console.error('[MessageDetail] Original URL:', message.imageUrl);
-                  console.error('[MessageDetail] Encoded URL:', message.imageUrl ? encodeFirebaseStoragePath(message.imageUrl) : 'N/A');
-                }
-              }}
-            />
-          )}
-        </View>
-      ) : message.imageUrl ? (
-        <View className="p-6 bg-white border-b border-gray-100">
-          <View style={styles.imageErrorContainer}>
-            <Text style={styles.imageErrorText}>Invalid image URL</Text>
-          </View>
-        </View>
-      ) : null}
-      
-      {/* Description */}
-      <View className="p-6 bg-white">
-        <Text className="text-gray-700 leading-6 text-base">
-          {message.description || 'No message content'}
-        </Text>
-      </View>
+      </LinearGradient>
 
-      {/* Target Audience */}
-      {(message.targetSport || message.targetLocation || message.targetAgeGroup) && (
-        <View className="mx-6 my-6 p-4 bg-blue-50 rounded-xl border border-blue-100">
-          <Text className="text-sm font-semibold text-blue-900 mb-2">Target Audience</Text>
-          {message.targetSport && (
-            <Text className="text-blue-700 text-sm mb-1">Sport: {message.targetSport}</Text>
-          )}
-          {message.targetLocation && (
-            <Text className="text-blue-700 text-sm mb-1">Location: {message.targetLocation}</Text>
-          )}
-          {message.targetAgeGroup && (
-            <Text className="text-blue-700 text-sm">Age Group: {message.targetAgeGroup}</Text>
-          )}
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.scrollContent}>
+        <View style={styles.postCard}>
+          <View style={styles.tag}><Text style={styles.tagText}>OFFICIAL POST</Text></View>
+          <Text style={styles.postTitle}>{message?.title}</Text>
+          <Text style={styles.postBody}>{message?.description}</Text>
         </View>
-      )}
 
-      {/* Message Type Badge */}
-      {message.type && (
-        <View className="mx-6 mb-6">
-          <View className={`px-3 py-2 rounded-lg self-start ${message.type === 'admin' ? 'bg-purple-100' : 'bg-blue-100'}`}>
-            <Text className={`text-sm font-semibold ${message.type === 'admin' ? 'text-purple-700' : 'text-blue-700'}`}>
-              {message.type === 'admin' ? 'Admin Notification' : 'Team Message'}
-            </Text>
-          </View>
+        <View style={styles.repliesArea}>
+          {replies.map((r) => {
+            const isMe = r.userId === user?.id;
+            return (
+              <View key={r.id} style={[styles.bubbleWrap, isMe ? { alignItems: 'flex-end' } : { alignItems: 'flex-start' }]}>
+                <View style={[styles.bubble, isMe ? styles.myBubble : styles.theirBubble]}>
+                  {!isMe && <Text style={styles.bubbleAuthor}>{r.userName}</Text>}
+                  <Text style={[styles.bubbleText, isMe && { color: '#FFF' }]}>{r.content}</Text>
+                </View>
+              </View>
+            )
+          })}
         </View>
-      )}
-    </ScrollView>
+      </ScrollView>
+
+      <View style={[styles.inputBar, { paddingBottom: insets.bottom + 10 }]}>
+        <TextInput 
+          style={styles.input} 
+          placeholder="Write a message..." 
+          value={replyText} 
+          onChangeText={setReplyText} 
+          multiline 
+        />
+        <TouchableOpacity style={styles.sendBtn} onPress={handleSendReply} disabled={sendingReply}>
+          {sendingReply ? <ActivityIndicator size="small" color="#FFF" /> : <MaterialIcons name="send" size={20} color="#FFF" />}
+        </TouchableOpacity>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  header: { paddingBottom: 20, borderBottomLeftRadius: 30, borderBottomRightRadius: 30 },
+  headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20 },
+  backBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { color: '#FFF', fontSize: 13, fontWeight: '900', letterSpacing: 1.5 },
+  scrollContent: { padding: 20, paddingBottom: 100 },
+  postCard: { backgroundColor: '#F8FAFC', borderRadius: 24, padding: 20, marginBottom: 30, borderWidth: 1.5, borderColor: '#F1F5F9' },
+  tag: { backgroundColor: '#002C61', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, alignSelf: 'flex-start', marginBottom: 12 },
+  tagText: { color: '#FFF', fontSize: 9, fontWeight: '900' },
+  postTitle: { fontSize: 20, fontWeight: '900', color: '#111827', marginBottom: 10 },
+  postBody: { fontSize: 14, color: '#4B5563', lineHeight: 22 },
+  repliesArea: { gap: 15 },
+  bubbleWrap: { width: '100%' },
+  bubble: { maxWidth: '80%', padding: 14, borderRadius: 20, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5, elevation: 2 },
+  myBubble: { backgroundColor: '#E31B23', borderBottomRightRadius: 4 },
+  theirBubble: { backgroundColor: '#F3F4F6', borderBottomLeftRadius: 4 },
+  bubbleAuthor: { fontSize: 10, fontWeight: '900', color: '#002C61', marginBottom: 4, textTransform: 'uppercase' },
+  bubbleText: { fontSize: 14, color: '#111827', lineHeight: 20 },
+  inputBar: { flexDirection: 'row', alignItems: 'center', padding: 15, borderTopWidth: 1.5, borderTopColor: '#F3F4F6', gap: 12, backgroundColor: '#FFF' },
+  input: { flex: 1, backgroundColor: '#F3F4F6', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, fontSize: 14, maxHeight: 100 },
+  sendBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#002C61', alignItems: 'center', justifyContent: 'center' },
+});

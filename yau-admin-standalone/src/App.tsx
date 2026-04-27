@@ -1,4 +1,4 @@
-import { Bell, Calendar, LayoutDashboard, LogOut, Menu, MessageSquare, Moon, School, Shirt, Sun, User as UserIcon, Users, X } from 'lucide-react';
+import { Bell, Calendar, LayoutDashboard, LogOut, Menu, MessageSquare, Moon, School, Shirt, Sun, Trophy, User as UserIcon, Users, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Link, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import Dashboard from './components/Dashboard';
@@ -9,6 +9,7 @@ import ScheduleManager from './components/ScheduleManager';
 import SchoolsManager from './components/SchoolsManager';
 import CoachManager from './components/CoachManager';
 import UniformManager from './components/UniformManager';
+import StandingsManager from './components/StandingsManager';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 function SidebarContent({ collapsed, onItemClick }: { collapsed: boolean; onItemClick?: () => void }) {
@@ -22,6 +23,7 @@ function SidebarContent({ collapsed, onItemClick }: { collapsed: boolean; onItem
     { path: '/messaging', label: 'Messaging', icon: MessageSquare },
     { path: '/schedules', label: 'Schedules', icon: Calendar },
     { path: '/schools', label: 'Schools', icon: School },
+    { path: '/standings', label: 'Standings', icon: Trophy },
   ];
 
   return (
@@ -225,6 +227,7 @@ function AppLayout() {
               <Route path="/uniforms" element={<UniformManager />} />
               <Route path="/schedules" element={<ScheduleManager />} />
               <Route path="/schools" element={<SchoolsManager />} />
+              <Route path="/standings" element={<StandingsManager />} />
             </Routes>
           </div>
         </main>
