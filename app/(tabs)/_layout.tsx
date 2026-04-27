@@ -48,15 +48,16 @@ export default function TabLayout() {
       tabBarActiveTintColor: '#E31B23',
       tabBarInactiveTintColor: '#9CA3AF',
       tabBarStyle: {
-        backgroundColor: '#001A3D',
-        borderTopWidth: 0,
+        backgroundColor: '#FFFFFF',
+        borderTopWidth: 1,
+        borderTopColor: '#F3F4F6',
         paddingTop: 8,
         paddingBottom: 8 + insets.bottom,
         height: 64 + insets.bottom,
-        elevation: 20,
+        elevation: 0,
         shadowColor: '#000',
-        shadowOpacity: 0.3,
-        shadowRadius: 15,
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
       },
       headerShown: false,
     }}>
@@ -65,7 +66,7 @@ export default function TabLayout() {
         options={{
           title: 'Home',
           tabBarIcon: ({ color, focused }) => (
-            <MaterialIcons name="home" size={focused ? 28 : 26} color={color} />
+            <MaterialIcons name={focused ? 'home' : 'home'} size={focused ? 28 : 26} color={color} />
           ),
         }}
       />
@@ -74,7 +75,7 @@ export default function TabLayout() {
         options={{
           title: 'Chats',
           tabBarIcon: ({ color, focused }) => (
-            <MaterialIcons name="chat-bubble" size={focused ? 26 : 24} color={color} />
+            <MaterialIcons name={focused ? 'chat-bubble' : 'chat-bubble-outline'} size={focused ? 26 : 24} color={color} />
           ),
         }}
       />
@@ -83,7 +84,7 @@ export default function TabLayout() {
         options={{
           title: 'Schedule',
           tabBarIcon: ({ color, focused }) => (
-            <MaterialIcons name="event" size={focused ? 26 : 24} color={color} />
+            <MaterialIcons name={focused ? 'event' : 'event'} size={focused ? 26 : 24} color={color} />
           ),
         }}
       />
@@ -92,7 +93,7 @@ export default function TabLayout() {
         options={{
           title: 'Standings',
           tabBarIcon: ({ color, focused }) => (
-            <MaterialIcons name="emoji-events" size={focused ? 26 : 24} color={color} />
+            <MaterialIcons name={focused ? 'emoji-events' : 'emoji-events'} size={focused ? 26 : 24} color={color} />
           ),
         }}
       />
@@ -101,11 +102,10 @@ export default function TabLayout() {
         options={{
           title: 'More',
           tabBarIcon: ({ color, focused }) => (
-            <MaterialIcons name="person" size={focused ? 26 : 24} color={color} />
+            <MaterialIcons name={focused ? 'person' : 'person-outline'} size={focused ? 26 : 24} color={color} />
           ),
         }}
       />
     </Tabs>
   );
 }
-

@@ -1,12 +1,14 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
+// import { LinearGradient } from 'expo-linear-gradient';
+import { router, Link } from 'expo-router';
 import { sendPasswordResetEmail, signInWithEmailAndPassword } from 'firebase/auth';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   ActivityIndicator,
   Alert,
   Image,
+  ImageBackground,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -32,6 +34,24 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [forgotLoading, setForgotLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+
+  useEffect(() => {
+    const loadCredentials = async () => {
+      try {
+        const storedEmail = await AsyncStorage.getItem('@yau_remember_email');
+        const storedPassword = await AsyncStorage.getItem('@yau_remember_password');
+        if (storedEmail && storedPassword) {
+          setEmail(storedEmail);
+          setPassword(storedPassword);
+          setRememberMe(true);
+        }
+      } catch (e) {
+        console.error('Failed to load credentials', e);
+      }
+    };
+    loadCredentials();
+  }, []);
 
   const handleForgotPassword = async () => {
     if (!email.trim()) {
@@ -95,6 +115,15 @@ export default function LoginScreen() {
         }
 
         await setUser(member);
+
+        if (rememberMe) {
+          await AsyncStorage.setItem('@yau_remember_email', email.trim());
+          await AsyncStorage.setItem('@yau_remember_password', password);
+        } else {
+          await AsyncStorage.removeItem('@yau_remember_email');
+          await AsyncStorage.removeItem('@yau_remember_password');
+        }
+
         router.replace('/(tabs)/' as any);
       } catch (apiError: any) {
         console.error('[Login] API Error:', apiError);
@@ -124,23 +153,28 @@ export default function LoginScreen() {
   return (
     <View style={styles.container}>
       {/* Stadium Background Mimic */}
-      <LinearGradient
-        colors={['#001A3D', '#002C61', '#0047AB']}
+      <ImageBackground
+        source={require('../../assets/images/background.png')}
         style={styles.gradientBg}
+        resizeMode="cover"
       >
-        <View style={[styles.headerSection, { paddingTop: insets.top + 20 }]}>
+        <View style={styles.overlay} />
+        <View style={[styles.headerSection, { paddingTop: insets.top + 40 }]}>
           <Image
-            source={require('../../assets/images/icon.png')}
+            source={require('../../assets/favicon.png')}
             style={styles.logoIcon}
             resizeMode="contain"
           />
           <Text style={styles.yauText}>YOUTH ATHLETE UNIVERSITY</Text>
           <View style={styles.welcomeContainer}>
-            <Text style={styles.welcomeText}>WELCOME TO <Text style={styles.yauRed}>YAU</Text></Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' }}>
+              <Text style={styles.welcomeText}>WELCOME TO </Text>
+              <Text style={[styles.welcomeText, styles.yauRed]}>YAU</Text>
+            </View>
             <Text style={styles.subTitleText}>Log in or create an account to stay connected with your team.</Text>
           </View>
         </View>
-      </LinearGradient>
+      </ImageBackground>
 
       <View style={styles.cardContainer}>
         <ScrollView
@@ -183,8 +217,18 @@ export default function LoginScreen() {
               </View>
 
               <View style={styles.actionRow}>
-                <TouchableOpacity style={styles.checkboxRow} activeOpacity={0.7}>
-                  <View style={styles.checkbox} />
+                <TouchableOpacity
+                  style={styles.checkboxRow}
+                  activeOpacity={0.7}
+                  onPress={() => setRememberMe(!rememberMe)}
+                >
+                  <View style={[
+                    styles.checkbox,
+                    { alignItems: 'center', justifyContent: 'center' },
+                    rememberMe && { backgroundColor: '#002C61', borderColor: '#002C61' }
+                  ]}>
+                    {rememberMe && <MaterialIcons name="check" size={16} color="#fff" />}
+                  </View>
                   <Text style={styles.rememberText}>Remember me</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={handleForgotPassword}>
@@ -200,17 +244,14 @@ export default function LoginScreen() {
                 {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.loginBtnText}>Log In</Text>}
               </TouchableOpacity>
 
-              <View style={styles.dividerRow}>
-                <View style={styles.dividerLine} />
-                <Text style={styles.orText}>Or</Text>
-                <View style={styles.dividerLine} />
-              </View>
-
               <View style={styles.signupPrompt}>
-                <Text style={styles.noAccountText}>Don't have an Account ?</Text>
-                <TouchableOpacity onPress={() => router.push('/auth/register' as any)}>
-                  <Text style={styles.signupLink}>Sign Up</Text>
-                </TouchableOpacity>
+
+                <Link href="/auth/register" asChild>
+                  <TouchableOpacity style={styles.signupBtn}>
+                    <Text style={styles.noAccountText}>Don't have an Account ?</Text>
+                    <Text style={styles.signupBtnText}>Sign Up</Text>
+                  </TouchableOpacity>
+                </Link>
               </View>
             </View>
           </KeyboardAvoidingView>
@@ -223,37 +264,42 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
   gradientBg: {
-    height: height * 0.45,
+    height: height * 0.5,
     width: width,
     position: 'absolute',
     top: 0,
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(16, 60, 117, 0.7)',
   },
   headerSection: {
     alignItems: 'center',
     paddingHorizontal: 30,
   },
   logoIcon: {
-    width: 60,
-    height: 60,
+    width: 55,
+    height: 55,
     marginBottom: 10,
   },
   yauText: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '800',
-    letterSpacing: 1.2,
-    marginBottom: 15,
+    letterSpacing: 1.5,
+    marginBottom: 20,
   },
   welcomeContainer: {
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: 0,
   },
   welcomeText: {
     color: '#FFFFFF',
-    fontSize: 36,
+    fontSize: 25,
     fontWeight: '900',
     textAlign: 'center',
-    lineHeight: 44,
+    lineHeight: 40,
+    textTransform: 'uppercase',
   },
   yauRed: { color: '#E31B23' },
   subTitleText: {
@@ -266,7 +312,7 @@ const styles = StyleSheet.create({
   },
   cardContainer: {
     flex: 1,
-    marginTop: height * 0.36,
+    marginTop: height * 0.44,
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     backgroundColor: '#FFFFFF',
@@ -378,16 +424,26 @@ const styles = StyleSheet.create({
   },
   signupPrompt: {
     alignItems: 'center',
+    marginTop: 30,
   },
   noAccountText: {
     fontSize: 14,
-    color: '#4B5563',
-    fontWeight: '600',
-    marginBottom: 6,
+    color: '#6B7280',
+    fontWeight: '500',
   },
-  signupLink: {
+  signupBtn: {
+    width: '100%',
+    height: 56,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  signupBtnText: {
     fontSize: 16,
-    color: '#0047AB',
-    fontWeight: '800',
+    color: '#002C61',
+    fontWeight: '700',
   },
 });

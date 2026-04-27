@@ -43,7 +43,7 @@ export default function StandingsScreen() {
     return () => unsubscribe();
   }, []);
 
-  const filteredStandings = standings.filter(s => 
+  const filteredStandings = standings.filter(s =>
     s.gradeBand.includes(selectedBand) || selectedBand.includes(s.gradeBand)
   );
 
@@ -85,7 +85,7 @@ export default function StandingsScreen() {
     <View style={styles.container}>
       <LinearGradient colors={['#E31B23', '#961218']} style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <View style={styles.headerTop}>
-          <Image source={require('../../assets/images/icon.png')} style={styles.logo} resizeMode="contain" />
+          <Image source={require('../../assets/images/logo1.png')} style={styles.logo} resizeMode="contain" />
           <Text style={styles.headerTitle}>LEAGUE STANDINGS</Text>
         </View>
 

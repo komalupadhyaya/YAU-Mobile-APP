@@ -58,7 +58,7 @@ export default function ScheduleScreen() {
     try {
       const fetched = await fetchSchedules();
       // Filtering logic remains the same
-      setSchedules(fetched); 
+      setSchedules(fetched);
     } catch (e) { } finally { setLoading(false); }
   };
 
@@ -84,7 +84,7 @@ export default function ScheduleScreen() {
     <View style={styles.container}>
       <LinearGradient colors={['#001A3D', '#002C61']} style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <View style={styles.headerTop}>
-          <Image source={require('../../assets/images/icon.png')} style={styles.logo} resizeMode="contain" />
+          <Image source={require('../../assets/images/logo1.png')} style={styles.logo} resizeMode="contain" />
           <Text style={styles.headerTitle}>GAME SCHEDULE</Text>
           <TouchableOpacity style={styles.filterBtn}><MaterialIcons name="filter-list" size={20} color="#FFF" /></TouchableOpacity>
         </View>
@@ -92,9 +92,9 @@ export default function ScheduleScreen() {
         {/* Custom Tabs */}
         <View style={styles.tabsRow}>
           {['live', 'upcoming', 'past'].map((t) => (
-            <TouchableOpacity 
+            <TouchableOpacity
               key={t}
-              style={[styles.tab, activeTab === t && styles.tabActive]} 
+              style={[styles.tab, activeTab === t && styles.tabActive]}
               onPress={() => setActiveTab(t as any)}
             >
               <Text style={[styles.tabText, activeTab === t && styles.tabTextActive]}>

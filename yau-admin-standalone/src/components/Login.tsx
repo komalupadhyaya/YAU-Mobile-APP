@@ -18,7 +18,7 @@ const Login: React.FC = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!email.trim() || !password) {
       toast.error('Email and password are required.');
       return;
@@ -34,7 +34,7 @@ const Login: React.FC = () => {
     } catch (err: any) {
       console.error('Login error:', err);
       let message = 'Invalid email or password. Please try again.';
-      
+
       switch (err.code) {
         case 'auth/user-not-found':
         case 'auth/wrong-password':
@@ -47,7 +47,7 @@ const Login: React.FC = () => {
           message = 'Security lockout: Too many failed attempts. Try again later.';
           break;
       }
-      
+
       setError(message);
       toast.error(message);
     } finally {
@@ -60,7 +60,7 @@ const Login: React.FC = () => {
       <div className="w-full max-w-md">
         <div className="flex flex-col items-center mb-8">
           <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-xl shadow-indigo-500/20 mb-4 scale-110">
-            <img src="/icon.png" alt="YAU Logo" className="w-10 h-10" />
+            <img src="/logo1.png" alt="YAU Logo" className="w-10 h-10" />
           </div>
           <h1 className="text-3xl font-black text-gray-900 dark:text-white tracking-tighter">YAU Admin</h1>
           <p className="text-gray-500 dark:text-white/40 font-bold uppercase tracking-widest text-[10px] mt-1">Control Center Access</p>

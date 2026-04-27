@@ -12,7 +12,7 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
 
   const handleSignOut = async () => {
-    try { await signOut(auth); } catch (_) {}
+    try { await signOut(auth); } catch (_) { }
     await clearUser();
     router.replace('/auth/login' as any);
   };
@@ -29,10 +29,10 @@ export default function ProfileScreen() {
     <View style={styles.container}>
       <LinearGradient colors={['#001A3D', '#002C61']} style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <View style={styles.headerTop}>
-          <Image source={require('../../assets/images/icon.png')} style={styles.logo} resizeMode="contain" />
+          <Image source={require('../../assets/images/logo1.png')} style={styles.logo} resizeMode="contain" />
           <Text style={styles.headerTitle}>MY ACCOUNT</Text>
         </View>
-        
+
         <View style={styles.userCard}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{initials}</Text>
@@ -79,7 +79,7 @@ export default function ProfileScreen() {
           <MaterialIcons name="logout" size={20} color="#E31B23" />
           <Text style={styles.signOutText}>Sign Out</Text>
         </TouchableOpacity>
-        
+
         <Text style={styles.version}>Version 2.0.4 Premium</Text>
       </ScrollView>
     </View>

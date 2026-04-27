@@ -15,11 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUser } from '../../src/context/UserContext';
 import { AdminPost, subscribeToMessages, markMessageAsRead } from '../../src/services/messaging';
 
-type MessageTab = 'alerts' | 'personal';
-
-function getInitials(title: string) {
-  return title.slice(0, 2).toUpperCase();
-}
+type MessageTab = 'all' | 'admin' | 'coaches';
 
 export default function MessagesScreen() {
   const router = useRouter();
@@ -27,7 +23,7 @@ export default function MessagesScreen() {
   const insets = useSafeAreaInsets();
   const [messages, setMessages] = useState<AdminPost[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<MessageTab>('alerts');
+  const [activeTab, setActiveTab] = useState<MessageTab>('all');
 
   useEffect(() => {
     if (!user) { setLoading(false); return; }
@@ -48,26 +44,47 @@ export default function MessagesScreen() {
   const formatTime = (ts: any) => {
     if (!ts) return '';
     const date = ts.toDate ? ts.toDate() : new Date(ts);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const oneDay = 24 * 60 * 60 * 1000;
+
+    if (diff < oneDay) {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+    } else if (diff < 7 * oneDay) {
+      return date.toLocaleDateString([], { weekday: 'short' });
+    }
+    return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
   };
+
+  const filteredMessages = messages.filter(m => {
+    if (activeTab === 'all') return true;
+    if (activeTab === 'admin') return m.role === 'admin';
+    if (activeTab === 'coaches') return m.role === 'coach';
+    return true;
+  });
 
   return (
     <View style={styles.container}>
       <LinearGradient colors={['#001A3D', '#002C61']} style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <View style={styles.headerTop}>
-          <Image source={require('../../assets/images/icon.png')} style={styles.logo} resizeMode="contain" />
-          <Text style={styles.headerTitle}>COMMUNICATION CENTER</Text>
+          <Image source={require('../../assets/images/logo1.png')} style={styles.logo} resizeMode="contain" />
+          <Text style={styles.headerTitle}>Messages</Text>
         </View>
+        <Text style={styles.headerSubtitle}>Stay up to date with important updates from your coaches and YAU</Text>
 
         <View style={styles.tabsRow}>
-          {['alerts', 'personal'].map((t) => (
-            <TouchableOpacity 
-              key={t}
-              style={[styles.tab, activeTab === t && styles.tabActive]} 
-              onPress={() => setActiveTab(t as any)}
+          {[
+            { id: 'all', label: 'All Messages' },
+            { id: 'admin', label: 'From Admin' },
+            { id: 'coaches', label: 'From Coaches' }
+          ].map((t) => (
+            <TouchableOpacity
+              key={t.id}
+              style={[styles.tab, activeTab === t.id && styles.tabActive]}
+              onPress={() => setActiveTab(t.id as any)}
             >
-              <Text style={[styles.tabText, activeTab === t && styles.tabTextActive]}>
-                {t.toUpperCase()}
+              <Text style={[styles.tabText, activeTab === t.id && styles.tabTextActive]}>
+                {t.label}
               </Text>
             </TouchableOpacity>
           ))}
@@ -78,7 +95,7 @@ export default function MessagesScreen() {
         <View style={styles.loading}><ActivityIndicator size="large" color="#002C61" /></View>
       ) : (
         <FlatList
-          data={messages}
+          data={filteredMessages}
           keyExtractor={item => item.id}
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={
@@ -89,22 +106,39 @@ export default function MessagesScreen() {
           }
           renderItem={({ item }) => {
             const isRead = item.readBy?.includes(user?.id || '');
+            const isCoach = item.role === 'coach';
+
             return (
-              <TouchableOpacity style={[styles.card, !isRead && styles.unreadCard]} onPress={() => handleOpenMessage(item)}>
-                <View style={styles.avatarRow}>
-                  <View style={[styles.avatar, { backgroundColor: isRead ? '#F1F5F9' : '#002C61' }]}>
-                    <Text style={[styles.avatarText, !isRead && { color: '#FFF' }]}>{getInitials(item.title)}</Text>
+              <TouchableOpacity style={styles.messageItem} onPress={() => handleOpenMessage(item)}>
+                <View style={styles.avatarContainer}>
+                  <View style={styles.avatarBg}>
+                    <Image source={require('../../assets/images/logo1.png')} style={styles.avatarLogo} resizeMode="contain" />
                   </View>
-                  {!isRead && <View style={styles.unreadTag} />}
                 </View>
-                <View style={styles.cardContent}>
-                  <View style={styles.row}>
-                    <Text style={[styles.msgTitle, !isRead && styles.boldText]} numberOfLines={1}>{item.title}</Text>
-                    <Text style={styles.time}>{formatTime(item.timestamp)}</Text>
+
+                <View style={styles.messageContent}>
+                  <View style={styles.messageHeader}>
+                    <View style={[styles.roleTag, isCoach ? styles.coachTag : styles.adminTag]}>
+                      <Text style={[styles.roleTagText, isCoach ? styles.coachTagText : styles.adminTagText]}>
+                        {item.role?.toUpperCase() || 'ADMIN'}
+                      </Text>
+                    </View>
+                    <Text style={styles.messageTime}>{formatTime(item.timestamp)}</Text>
                   </View>
-                  <Text style={styles.preview} numberOfLines={2}>{item.description}</Text>
+
+                  <View style={styles.titleRow}>
+                    <Text style={styles.messageTitle} numberOfLines={1}>{item.title}</Text>
+                    {!isRead && (
+                      <View style={styles.unreadBadge}>
+                        <Text style={styles.unreadCount}>9</Text>
+                      </View>
+                    )}
+                  </View>
+
+                  <Text style={styles.messagePreview} numberOfLines={1}>
+                    {item.description}
+                  </Text>
                 </View>
-                <MaterialIcons name="chevron-right" size={20} color="#CBD5E1" />
               </TouchableOpacity>
             )
           }}
@@ -116,29 +150,66 @@ export default function MessagesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: { paddingBottom: 20, borderBottomLeftRadius: 30, borderBottomRightRadius: 30 },
-  headerTop: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, marginBottom: 20 },
+  header: { paddingBottom: 0 },
+  headerTop: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, marginBottom: 10 },
   logo: { width: 32, height: 32 },
-  headerTitle: { color: '#FFF', fontSize: 13, fontWeight: '900', letterSpacing: 1.5 },
-  tabsRow: { flexDirection: 'row', paddingHorizontal: 20, gap: 10 },
-  tab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.1)' },
-  tabActive: { backgroundColor: '#E31B23' },
-  tabText: { color: 'rgba(255,255,255,0.6)', fontSize: 11, fontWeight: '800' },
+  headerTitle: { color: '#FFF', fontSize: 24, fontWeight: '900' },
+  headerSubtitle: { color: 'rgba(255,255,255,0.8)', fontSize: 13, paddingHorizontal: 20, marginBottom: 20, lineHeight: 18 },
+  tabsRow: { flexDirection: 'row', paddingHorizontal: 10 },
+  tab: {
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    borderBottomWidth: 3,
+    borderBottomColor: 'transparent'
+  },
+  tabActive: { borderBottomColor: '#E31B23' },
+  tabText: { color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: '700' },
   tabTextActive: { color: '#FFF' },
-  listContent: { padding: 20, paddingBottom: 100 },
-  card: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', borderRadius: 20, padding: 15, marginBottom: 12, borderWidth: 1.5, borderColor: '#F3F4F6' },
-  unreadCard: { borderColor: '#E31B23', borderLeftWidth: 4 },
-  avatarRow: { position: 'relative' },
-  avatar: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontSize: 14, fontWeight: '900', color: '#6B7280' },
-  unreadTag: { position: 'absolute', top: 0, right: 0, width: 10, height: 10, borderRadius: 5, backgroundColor: '#E31B23', borderWidth: 1.5, borderColor: '#FFF' },
-  cardContent: { flex: 1, paddingHorizontal: 12 },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  msgTitle: { fontSize: 14, fontWeight: '700', color: '#111827', flex: 1, marginRight: 10 },
-  boldText: { fontWeight: '900' },
-  time: { fontSize: 11, fontWeight: '700', color: '#9CA3AF' },
-  preview: { fontSize: 12, color: '#6B7280', lineHeight: 18 },
+  listContent: { paddingBottom: 100 },
+  messageItem: {
+    flexDirection: 'row',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    alignItems: 'center'
+  },
+  avatarContainer: { marginRight: 16 },
+  avatarBg: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  avatarLogo: { width: 24, height: 24 },
+  messageContent: { flex: 1 },
+  messageHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  roleTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 1
+  },
+  adminTag: { borderColor: '#0047AB', backgroundColor: '#EFF6FF' },
+  coachTag: { borderColor: '#10B981', backgroundColor: '#ECFDF5' },
+  roleTagText: { fontSize: 10, fontWeight: '800' },
+  adminTagText: { color: '#0047AB' },
+  coachTagText: { color: '#10B981' },
+  messageTime: { fontSize: 12, color: '#94A3B8', fontWeight: '600' },
+  titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 },
+  messageTitle: { fontSize: 15, fontWeight: '800', color: '#1E293B', flex: 1, marginRight: 10 },
+  unreadBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#E31B23',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  unreadCount: { color: '#FFF', fontSize: 10, fontWeight: '900' },
+  messagePreview: { fontSize: 13, color: '#64748B', lineHeight: 18 },
   loading: { flex: 1, justifyContent: 'center' },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: 100 },
-  emptyText: { color: '#9CA3AF', fontSize: 15, fontWeight: '700', marginTop: 15 },
+  emptyText: { color: '#94A3B8', fontSize: 15, fontWeight: '700', marginTop: 15 },
 });

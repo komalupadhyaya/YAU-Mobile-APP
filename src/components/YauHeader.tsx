@@ -10,7 +10,7 @@ export function YauHeader({ subtitle }: YauHeaderProps) {
     <View style={styles.container}>
       <View style={styles.logoRow}>
         <Image
-          source={require('../../assets/images/icon.png')}
+          source={require('../../assets/images/logo1.png')}
           style={styles.logoIcon}
           resizeMode="contain"
         />

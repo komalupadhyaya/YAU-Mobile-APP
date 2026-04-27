@@ -167,9 +167,9 @@ export default function RegisterScreen() {
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#001A3D', '#002C61', '#0047AB']} style={styles.gradientBg}>
-        <View style={[styles.headerSection, { paddingTop: insets.top + 20 }]}>
-          <Image source={require('../../assets/images/icon.png')} style={styles.logoIcon} resizeMode="contain" />
+      <LinearGradient colors={['#001A3D', '#002C61']} style={styles.gradientBg}>
+        <View style={[styles.headerSection, { paddingTop: insets.top + 40 }]}>
+          <Image source={require('../../assets/images/logo1.png')} style={styles.logoIcon} resizeMode="contain" />
           <Text style={styles.yauHeaderText}>YOUTH ATHLETE UNIVERSITY</Text>
           <Text style={styles.mainTitle}>Create Your Account</Text>
           <Text style={styles.subTitle}>Let’s get started with your information</Text>
@@ -180,16 +180,16 @@ export default function RegisterScreen() {
         {/* Progress Indicator */}
         <View style={styles.progressWrapper}>
           <View style={styles.stepIndicator}>
-            <View style={[styles.stepCircle, step >= 1 && styles.stepCircleActive]}><Text style={styles.stepNum}>01</Text></View>
+            <View style={[styles.stepCircle, step >= 1 && styles.stepCircleActive]}><Text style={[styles.stepNum, step >= 1 && styles.stepNumActive]}>01</Text></View>
             <View style={[styles.stepLine, step >= 2 && styles.stepLineActive]} />
-            <View style={[styles.stepCircle, step >= 2 && styles.stepCircleActive]}><Text style={styles.stepNum}>02</Text></View>
+            <View style={[styles.stepCircle, step >= 2 && styles.stepCircleActive]}><Text style={[styles.stepNum, step >= 2 && styles.stepNumActive]}>02</Text></View>
           </View>
           <Text style={styles.stepText}>STEP {step} OF 2</Text>
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-            <Text style={styles.sectionTitle}>{step === 1 ? 'Parent Information' : 'Student Athlete Info'}</Text>
+            <Text style={styles.sectionTitle}>{step === 1 ? 'Parent Information' : 'Child Information'}</Text>
 
             {step === 1 ? (
               <View>
@@ -230,12 +230,12 @@ export default function RegisterScreen() {
                   <View key={idx}>
                     <View style={styles.row}>
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.inputLabel}>First Name</Text>
-                        <View style={styles.inputWrapper}><TextInput style={styles.input} value={student.firstName} onChangeText={v => updateStudent(idx, { firstName: v })} /></View>
+                        <Text style={styles.inputLabel}>Child First Name</Text>
+                        <View style={styles.inputWrapper}><TextInput style={styles.input} placeholder="Niki" value={student.firstName} onChangeText={v => updateStudent(idx, { firstName: v })} /></View>
                       </View>
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.inputLabel}>Last Name</Text>
-                        <View style={styles.inputWrapper}><TextInput style={styles.input} value={student.lastName} onChangeText={v => updateStudent(idx, { lastName: v })} /></View>
+                        <Text style={styles.inputLabel}>Child Last Name</Text>
+                        <View style={styles.inputWrapper}><TextInput style={styles.input} placeholder="Zefanya" value={student.lastName} onChangeText={v => updateStudent(idx, { lastName: v })} /></View>
                       </View>
                     </View>
 
@@ -248,23 +248,35 @@ export default function RegisterScreen() {
                     <TouchableOpacity style={styles.inputWrapper} onPress={() => { setModalStudentIndex(idx); setIsGradeModalOpen(true); }}>
                       <Text style={{ color: student.gradeBand ? '#111827' : '#9CA3AF' }}>{student.gradeBand || 'Select Grade Band'}</Text>
                     </TouchableOpacity>
-
-                    <Text style={styles.inputLabel}>Sports</Text>
-                    <View style={styles.chipsRow}>
-                      {SPORTS.map(s => {
-                        const sel = student.sports.includes(s);
-                        return (
-                          <TouchableOpacity key={s} style={[styles.chip, sel && styles.chipSel]} onPress={() => toggleSport(idx, s)}>
-                            <Text style={[styles.chipText, sel && styles.chipTextSel]}>{s}</Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
                   </View>
                 ))}
 
-                <TouchableOpacity style={styles.primaryBtn} onPress={handleRegister} disabled={loading}>
-                  {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>Register Now</Text>}
+                <TouchableOpacity
+                  style={styles.addChildBtn}
+                  onPress={() => setStudents(prev => [...prev, emptyStudent()])}
+                >
+                  <MaterialIcons name="add-circle-outline" size={20} color="#0047AB" />
+                  <Text style={styles.addChildText}>Add Another Child</Text>
+                </TouchableOpacity>
+
+                <View style={styles.termsRow}>
+                  <TouchableOpacity
+                    style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}
+                    onPress={() => setTermsAccepted(!termsAccepted)}
+                  >
+                    {termsAccepted && <MaterialIcons name="check" size={14} color="#FFF" />}
+                  </TouchableOpacity>
+                  <Text style={styles.termsText}>
+                    I agree to the <Text style={styles.linkText}>Terms of Service</Text> and <Text style={styles.linkText}>Privacy Policy</Text>
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.primaryBtn, (!termsAccepted || loading) && styles.btnDisabled]}
+                  onPress={handleRegister}
+                  disabled={!termsAccepted || loading}
+                >
+                  {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>Create Account</Text>}
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.backBtn} onPress={() => setStep(1)}><Text style={styles.backBtnText}>Back</Text></TouchableOpacity>
               </View>
@@ -317,12 +329,13 @@ const styles = StyleSheet.create({
   cardContainer: { flex: 1, marginTop: height * 0.28, borderTopLeftRadius: 30, borderTopRightRadius: 30, backgroundColor: '#FFFFFF', elevation: 20 },
   progressWrapper: { alignItems: 'center', marginTop: 20 },
   stepIndicator: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-  stepCircle: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center' },
-  stepCircleActive: { backgroundColor: '#0047AB' },
-  stepNum: { color: '#FFF', fontSize: 12, fontWeight: '700' },
-  stepLine: { width: 40, height: 2, backgroundColor: '#F3F4F6', marginHorizontal: 8 },
+  stepCircle: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#FFFFFF', borderWidth: 1.5, borderColor: '#E5E7EB', justifyContent: 'center', alignItems: 'center' },
+  stepCircleActive: { backgroundColor: '#0047AB', borderColor: '#0047AB' },
+  stepNum: { color: '#9CA3AF', fontSize: 13, fontWeight: '700' },
+  stepNumActive: { color: '#FFFFFF' },
+  stepLine: { width: 40, height: 2, backgroundColor: '#E5E7EB', marginHorizontal: 8 },
   stepLineActive: { backgroundColor: '#0047AB' },
-  stepText: { fontSize: 11, fontWeight: '700', color: '#0047AB' },
+  stepText: { fontSize: 12, fontWeight: '700', color: '#0047AB', marginTop: 8 },
   scrollContent: { paddingHorizontal: 24, paddingTop: 20, paddingBottom: 40 },
   sectionTitle: { fontSize: 22, fontWeight: '900', color: '#111827', textAlign: 'center', marginBottom: 20 },
   row: { flexDirection: 'row', gap: 12, marginBottom: 12 },
@@ -339,6 +352,57 @@ const styles = StyleSheet.create({
   chipSel: { borderColor: '#0047AB', backgroundColor: '#EFF6FF' },
   chipText: { fontSize: 12, color: '#6B7280', fontWeight: '700' },
   chipTextSel: { color: '#0047AB' },
+  addChildBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#0047AB',
+    marginTop: 10,
+    backgroundColor: '#F0F7FF',
+  },
+  addChildText: {
+    color: '#0047AB',
+    fontSize: 14,
+    fontWeight: '700',
+    marginLeft: 8,
+  },
+  termsRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 24,
+    marginBottom: 10,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: '#D1D5DB',
+    marginRight: 10,
+    marginTop: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: '#0047AB',
+    borderColor: '#0047AB',
+  },
+  termsText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#4B5563',
+    lineHeight: 18,
+  },
+  linkText: {
+    color: '#0047AB',
+    fontWeight: '700',
+  },
+  btnDisabled: {
+    opacity: 0.6,
+  },
   footer: { flexDirection: 'row', justifyContent: 'center', marginTop: 24 },
   footerText: { color: '#6B7280', fontSize: 14 },
   loginLink: { color: '#0047AB', fontWeight: '800', fontSize: 14 },

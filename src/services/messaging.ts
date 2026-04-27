@@ -32,6 +32,7 @@ export interface AdminPost {
   targetGroups?: { school: string; gradeBand: string; sport: string }[];
   readBy?: string[]; // Array of user UIDs who have read this
   type?: 'admin' | 'team';
+  role?: 'admin' | 'coach';
   replyCount?: number;
 }
 
