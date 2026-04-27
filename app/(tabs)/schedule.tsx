@@ -84,13 +84,14 @@ export default function ScheduleScreen() {
     } catch (e) { return true; }
   };
 
-  // Use mock data only if database is entirely empty
-  const pool = schedules.length > 0 ? schedules : [...mockUpcoming, ...mockPast];
+  // Split real schedules into upcoming and past
+  const realUpcoming = schedules.filter(s => isUpcomingDate(s.date));
+  const realPast = schedules.filter(s => !isUpcomingDate(s.date));
 
-  const displayedItems = pool.filter(s => {
-    const isUpcoming = isUpcomingDate(s.date);
-    return activeTab === 'upcoming' ? isUpcoming : !isUpcoming;
-  });
+  // Use mock data if real data for that specific category is empty
+  const displayedItems = activeTab === 'upcoming' 
+    ? (realUpcoming.length > 0 ? realUpcoming : mockUpcoming)
+    : (realPast.length > 0 ? realPast : mockPast);
 
   const grouped: Record<string, Schedule[]> = {};
   for (const s of displayedItems) {

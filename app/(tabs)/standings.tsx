@@ -68,11 +68,20 @@ export default function StandingsScreen() {
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
 
-  const pool = standings.length > 0 ? standings : MOCK_STANDINGS;
-  const filteredData = pool.filter(s => 
+  // Filter real data
+  const realFiltered = standings.filter(s => 
     s.sport === selectedSport && 
     (s.gradeBand.includes(selectedBand.split(' ')[0]) || selectedBand.includes(s.gradeBand))
   );
+
+  // Filter mock data
+  const mockFiltered = MOCK_STANDINGS.filter(s => 
+    s.sport === selectedSport && 
+    (s.gradeBand.includes(selectedBand.split(' ')[0]) || selectedBand.includes(s.gradeBand))
+  );
+
+  // Use mock data only if real filtered results are empty
+  const filteredData = realFiltered.length > 0 ? realFiltered : mockFiltered;
 
   const renderHeader = () => (
     <View style={styles.tableHeader}>
