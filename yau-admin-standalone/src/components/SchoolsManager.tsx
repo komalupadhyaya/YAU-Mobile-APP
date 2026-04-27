@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, query, onSnapshot, addDoc, updateDoc, doc, serverTimestamp, orderBy, writeBatch } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { Plus, Edit2, Trash2, X, Loader2, Building2, GraduationCap, ToggleLeft, ToggleRight, Search, School as SchoolIcon, CheckSquare, Square, AlertTriangle } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, Loader2, Building2, GraduationCap, ToggleLeft, ToggleRight, Search, CheckSquare, Square, AlertTriangle } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Card } from './ui/Card';
 import { Input } from './ui/Input';

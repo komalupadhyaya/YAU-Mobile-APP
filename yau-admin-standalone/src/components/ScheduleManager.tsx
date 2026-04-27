@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, orderBy, where, writeBatch } from 'firebase/firestore';
+import { collection, query, onSnapshot, addDoc, updateDoc, doc, serverTimestamp, orderBy, where, writeBatch } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Calendar, Plus, Edit2, Trash2, X, Loader2, MapPin, Clock, Trophy, CheckSquare, Square, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
