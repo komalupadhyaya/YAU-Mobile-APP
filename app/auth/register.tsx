@@ -1,5 +1,4 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -7,6 +6,7 @@ import {
   Alert,
   FlatList,
   Image,
+  ImageBackground,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -20,10 +20,14 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppInput from '../../src/components/AppInput';
+import { CountryPicker } from '../../src/components/CountryPicker';
+import { countries, Country } from '../../src/constants/countries';
 import { useUser } from '../../src/context/UserContext';
 import { registerForPushNotificationsAsync } from '../../src/services/notifications';
 import { GRADE_BANDS, registerMember, SPORTS } from '../../src/services/registration';
 import { School, subscribeToSchools } from '../../src/services/schools';
+import { auth } from '../../src/services/firebase';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import { Member } from '../../src/types';
 
 const { width, height } = Dimensions.get('window');
@@ -86,6 +90,8 @@ export default function RegisterScreen() {
   const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
   const [isSchoolModalOpen, setIsSchoolModalOpen] = useState(false);
   const [isGradeModalOpen, setIsGradeModalOpen] = useState(false);
+  const [isCountryPickerOpen, setIsCountryPickerOpen] = useState(false);
+  const [selectedCountry, setSelectedCountry] = useState<Country>(countries[0]); // Default to US
   const [modalStudentIndex, setModalStudentIndex] = useState<number | null>(null);
 
   const [schools, setSchools] = useState<School[]>([]);
@@ -97,6 +103,10 @@ export default function RegisterScreen() {
     registerForPushNotificationsAsync().then(t => { if (t) setPushToken(t); });
     return () => unsub();
   }, []);
+
+  useEffect(() => {
+    console.log('Selected Country updated:', selectedCountry);
+  }, [selectedCountry]);
 
   const handlePhoneChange = (text: string) => {
     const digits = text.replace(/\D/g, '').slice(0, 10);
@@ -114,18 +124,7 @@ export default function RegisterScreen() {
       return { ...s, sports: has ? s.sports.filter(sp => sp !== sport) : [...s.sports, sport] };
     }));
   };
-
   const handleRegister = async () => {
-    const validateEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
-    if (!parentFirstName.trim() || !parentLastName.trim() || !email.trim() || !password || !confirmPassword || !phoneDigits) {
-      Alert.alert('Required Fields', 'Please fill in all parent information fields.');
-      return;
-    }
-    if (!validateEmail(email.trim())) { Alert.alert('Invalid Email', 'Please enter a valid email address.'); return; }
-    if (password.length < 6) { Alert.alert('Weak Password', 'Password must be at least 6 characters.'); return; }
-    if (password !== confirmPassword) { Alert.alert('Password Mismatch', 'Passwords do not match.'); return; }
-    if (phoneDigits.length < 10) { Alert.alert('Invalid Phone', 'Please enter a 10-digit phone number.'); return; }
-
     setLoading(true);
     try {
       const result = await registerMember({
@@ -133,7 +132,7 @@ export default function RegisterScreen() {
         parentLastName: parentLastName.trim(),
         email: email.trim(),
         password,
-        phone: phoneDigits,
+        phone: selectedCountry.dialCode + phoneDigits, // Use dial code
         sport: students[0]?.sports?.[0] || '',
         membershipType: 'free',
         smsConsent,
@@ -149,16 +148,41 @@ export default function RegisterScreen() {
       });
 
       if (result.success) {
+        const studentData = students.map(s => ({
+          firstName: s.firstName.trim(),
+          lastName: s.lastName.trim(),
+          grade: s.gradeBand,
+          school_name: s.schoolName,
+          sports: s.sports,
+        }));
+
         await setUser({
+          id: result.memberId,
           firstName: parentFirstName.trim(),
           lastName: parentLastName.trim(),
           email: email.trim(),
-          phone: phoneDigits,
-          students: [], // Simplified for local context update
+          phone: selectedCountry.dialCode + phoneDigits,
+          students: studentData, 
         } as any);
-        Alert.alert('Welcome to YAU! 🏆', 'Registration complete!', [{ text: 'Get Started', onPress: () => router.replace('/(tabs)/' as any) }]);
+
+        // Sign in to Firebase Auth so the auth listener in UserContext is satisfied
+        try {
+          await signInWithEmailAndPassword(auth, email.trim(), password);
+        } catch (signInErr) {
+          console.error('Sign in after registration failed:', signInErr);
+        }
+
+        Alert.alert(
+          'Welcome to YAU! 🏆', 
+          'Registration complete!', 
+          [{ text: 'Get Started', onPress: () => router.replace('/(tabs)/' as any) }]
+        );
       } else {
-        Alert.alert('Registration Failed', result.error);
+        let errorMsg = result.error || 'Registration failed';
+        if (errorMsg.includes('auth/email-already-in-use') || errorMsg.includes('already exists')) {
+          errorMsg = 'This email is already registered. Please use a different email or log in.';
+        }
+        Alert.alert('Registration Failed', errorMsg);
       }
     } catch (err) {
       Alert.alert('Error', 'An unexpected error occurred.');
@@ -167,16 +191,42 @@ export default function RegisterScreen() {
     }
   };
 
+  const isStep1Valid = () => {
+    const validateEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+    return (
+      parentFirstName.trim().length > 0 &&
+      parentLastName.trim().length > 0 &&
+      validateEmail(email.trim()) &&
+      password.length >= 8 &&
+      password === confirmPassword &&
+      phoneDigits.length >= 10
+    );
+  };
+
+  const isStep2Valid = () => {
+    return students.every(s => 
+      s.firstName.trim().length > 0 &&
+      s.lastName.trim().length > 0 &&
+      s.gradeBand.length > 0 &&
+      s.schoolName.trim().length > 0
+    ) && termsAccepted;
+  };
+
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#001A3D', '#002C61']} style={styles.gradientBg}>
+      <ImageBackground
+        source={require('../../assets/images/background.png')}
+        style={styles.gradientBg}
+        resizeMode="cover"
+      >
+        <View style={styles.overlay} />
         <View style={[styles.headerSection, { paddingTop: insets.top + 40 }]}>
           <Image source={require('../../assets/favicon.png')} style={styles.logoIcon} resizeMode="contain" />
           <Text style={styles.yauHeaderText}>YOUTH ATHLETE UNIVERSITY</Text>
           <Text style={styles.mainTitle}>Create Your Account</Text>
           <Text style={styles.subTitle}>Let’s get started with your information</Text>
         </View>
-      </LinearGradient>
+      </ImageBackground>
 
       <View style={styles.cardContainer}>
         {/* Progress Indicator */}
@@ -215,10 +265,14 @@ export default function RegisterScreen() {
 
                 <Text style={styles.inputLabel}>Phone Number</Text>
                 <View style={styles.inputWrapper}>
-                  <View style={styles.phonePrefix}>
-                    <Text style={{ fontSize: 18 }}>🇺🇸</Text>
-                    <MaterialIcons name="keyboard-arrow-down" size={18} color="#6B7280" />
-                  </View>
+                  <TouchableOpacity 
+                    style={styles.phonePrefix}
+                    onPress={() => setIsCountryPickerOpen(true)}
+                  >
+                    <Text style={{ fontSize: 18, marginRight: 4 }}>{selectedCountry.flag}</Text>
+                    <Text style={{ fontSize: 15, fontWeight: '700', color: '#111827' }}>{selectedCountry.dialCode}</Text>
+                    <MaterialIcons name="keyboard-arrow-down" size={18} color="#6B7280" style={{ marginLeft: 2 }} />
+                  </TouchableOpacity>
                   <View style={styles.phoneDivider} />
                   <TextInput style={styles.input} placeholder="(333) 123 - 4567" value={formatPhoneDisplay(phoneDigits)} onChangeText={handlePhoneChange} keyboardType="phone-pad" />
                 </View>
@@ -230,7 +284,9 @@ export default function RegisterScreen() {
                     <MaterialIcons name={showPassword ? 'visibility' : 'visibility-off'} size={20} color="#9CA3AF" />
                   </TouchableOpacity>
                 </View>
-                <Text style={styles.hintText}>Must be at least 8 characters</Text>
+                 <Text style={[styles.hintText, password.length > 0 && password.length < 8 && { color: '#EF4444', fontWeight: '700' }]}>
+                  Must be at least 8 characters
+                </Text>
 
                 <Text style={styles.inputLabel}>Confirm Password</Text>
                 <View style={styles.inputWrapper}>
@@ -239,8 +295,15 @@ export default function RegisterScreen() {
                     <MaterialIcons name={showConfirmPassword ? 'visibility' : 'visibility-off'} size={20} color="#9CA3AF" />
                   </TouchableOpacity>
                 </View>
+                {confirmPassword.length > 0 && password !== confirmPassword && (
+                  <Text style={styles.errorText}>Passwords do not match</Text>
+                )}
 
-                <TouchableOpacity style={styles.primaryBtn} onPress={() => setStep(2)}>
+                <TouchableOpacity 
+                  style={[styles.primaryBtn, !isStep1Valid() && styles.btnDisabled]} 
+                  onPress={() => setStep(2)}
+                  disabled={!isStep1Valid()}
+                >
                   <Text style={styles.primaryBtnText}>Continue</Text>
                 </TouchableOpacity>
               </View>
@@ -294,9 +357,9 @@ export default function RegisterScreen() {
                 </View>
 
                 <TouchableOpacity
-                  style={[styles.primaryBtn, (!termsAccepted || loading) && styles.btnDisabled]}
+                  style={[styles.primaryBtn, (!isStep2Valid() || loading) && styles.btnDisabled]}
                   onPress={handleRegister}
-                  disabled={!termsAccepted || loading}
+                  disabled={!isStep2Valid() || loading}
                 >
                   {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>Create Account</Text>}
                 </TouchableOpacity>
@@ -339,6 +402,12 @@ export default function RegisterScreen() {
           <TouchableOpacity onPress={() => setIsSchoolModalOpen(false)}><Text style={styles.closeModal}>Close</Text></TouchableOpacity>
         </View></View>
       </Modal>
+
+      <CountryPicker
+        visible={isCountryPickerOpen}
+        onClose={() => setIsCountryPickerOpen(false)}
+        onSelect={setSelectedCountry}
+      />
     </View>
   );
 }
@@ -346,6 +415,10 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
   gradientBg: { height: height * 0.45, width: width, position: 'absolute', top: 0 },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(16, 60, 117, 0.7)',
+  },
   headerSection: { alignItems: 'center', paddingHorizontal: 30 },
   logoIcon: { width: 55, height: 55, marginBottom: 10 },
   yauHeaderText: { color: '#FFF', fontSize: 14, fontWeight: '800', letterSpacing: 1.5 },
@@ -369,7 +442,7 @@ const styles = StyleSheet.create({
   input: { flex: 1, fontSize: 15, color: '#111827', fontWeight: '600' },
   inputValue: { flex: 1, fontSize: 15, color: '#111827', fontWeight: '600' },
   placeholderText: { color: '#9CA3AF' },
-  phonePrefix: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  phonePrefix: { flexDirection: 'row', alignItems: 'center' },
   phoneDivider: { width: 1, height: 24, backgroundColor: '#E5E7EB', marginHorizontal: 12 },
   eyeBtn: { padding: 8 },
   hintText: { fontSize: 11, color: '#9CA3AF', marginTop: 4 },
@@ -432,7 +505,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   btnDisabled: {
-    opacity: 0.6,
+    opacity: 0.5,
+  },
+  errorText: {
+    color: '#EF4444',
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 6,
+    marginLeft: 4,
   },
   footer: { flexDirection: 'row', justifyContent: 'center', marginTop: 24 },
   footerText: { color: '#6B7280', fontSize: 14 },

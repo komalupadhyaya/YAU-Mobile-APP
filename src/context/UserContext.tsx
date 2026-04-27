@@ -108,8 +108,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const setupAuthListener = () => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
-        // Firebase user is logged in, load user data from AsyncStorage
-        loadUserData();
+        // Only load if we don't already have a user state
+        // This prevents race conditions during sign-up/login
+        if (!user) {
+          loadUserData();
+        }
       } else {
         // Firebase user is logged out
         setUser(null);

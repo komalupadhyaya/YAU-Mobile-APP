@@ -1,33 +1,54 @@
 import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View, Image } from 'react-native';
+import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View, Image, Modal } from 'react-native';
 import { db } from '../../src/services/firebase';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MaterialIcons } from '@expo/vector-icons';
 
 interface Standing {
   id: string;
   teamName: string;
-  schoolName: string;
   gradeBand: string;
   sport: string;
   wins: number;
+  draws: number;
   losses: number;
   points: number;
 }
 
+type SportType = 'Soccer' | 'Flag Football' | 'Basketball';
+
 const GRADE_BANDS = [
-  'K / 1st Grade',
-  '2nd / 3rd Grade',
-  '4th / 5th Grade',
-  'Middle School'
+  'K - 1st Grade',
+  '1st - 2nd Grade',
+  '3rd - 4th Grade',
+  '5th - 6th Grade',
+  '7th - 8th Grade',
+  'High School',
+];
+
+const MOCK_STANDINGS: Standing[] = [
+  // Soccer
+  { id: 's1', teamName: 'Rising Stars', gradeBand: '1st - 2nd', sport: 'Soccer', wins: 6, draws: 0, losses: 1, points: 18 },
+  { id: 's2', teamName: 'Tiny Kickers', gradeBand: '1st - 2nd', sport: 'Soccer', wins: 5, draws: 0, losses: 2, points: 15 },
+  { id: 's3', teamName: 'Bright Future', gradeBand: '1st - 2nd', sport: 'Soccer', wins: 4, draws: 0, losses: 3, points: 12 },
+  { id: 's4', teamName: 'Happy Feet', gradeBand: '1st - 2nd', sport: 'Soccer', wins: 2, draws: 0, losses: 5, points: 9 },
+  // Basketball
+  { id: 'b1', teamName: 'Hoop Dreams', gradeBand: '1st - 2nd', sport: 'Basketball', wins: 8, draws: 0, losses: 0, points: 24 },
+  { id: 'b2', teamName: 'Dunk Masters', gradeBand: '1st - 2nd', sport: 'Basketball', wins: 5, draws: 1, losses: 2, points: 16 },
+  // Flag Football
+  { id: 'f1', teamName: 'Gridiron Kids', gradeBand: '1st - 2nd', sport: 'Flag Football', wins: 7, draws: 0, losses: 1, points: 21 },
+  { id: 'f2', teamName: 'Flash Runners', gradeBand: '1st - 2nd', sport: 'Flag Football', wins: 3, draws: 0, losses: 5, points: 9 },
 ];
 
 export default function StandingsScreen() {
   const insets = useSafeAreaInsets();
   const [standings, setStandings] = useState<Standing[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedBand, setSelectedBand] = useState(GRADE_BANDS[0]);
+  const [selectedSport, setSelectedSport] = useState<SportType>('Soccer');
+  const [selectedBand, setSelectedBand] = useState(GRADE_BANDS[1]); // 1st-2nd
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   useEffect(() => {
     const q = query(collection(db, 'standings'), orderBy('points', 'desc'));
@@ -43,78 +64,136 @@ export default function StandingsScreen() {
     return () => unsubscribe();
   }, []);
 
-  const filteredStandings = standings.filter(s =>
-    s.gradeBand.includes(selectedBand) || selectedBand.includes(s.gradeBand)
-  );
-
-  const getRankColor = (index: number) => {
-    if (index === 0) return '#FFD700'; // Gold
-    if (index === 1) return '#C0C0C0'; // Silver
-    if (index === 2) return '#CD7F32'; // Bronze
-    return '#E5E7EB';
+  const getInitials = (name: string) => {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
+
+  const pool = standings.length > 0 ? standings : MOCK_STANDINGS;
+  const filteredData = pool.filter(s => 
+    s.sport === selectedSport && 
+    (s.gradeBand.includes(selectedBand.split(' ')[0]) || selectedBand.includes(s.gradeBand))
+  );
 
   const renderHeader = () => (
     <View style={styles.tableHeader}>
-      <Text style={[styles.headerText, { flex: 0.8 }]}>RK</Text>
-      <Text style={[styles.headerText, { flex: 3 }]}>TEAM</Text>
-      <Text style={[styles.headerText, { flex: 0.7, textAlign: 'center' }]}>W</Text>
-      <Text style={[styles.headerText, { flex: 0.7, textAlign: 'center' }]}>L</Text>
-      <Text style={[styles.headerText, { flex: 1, textAlign: 'right' }]}>PTS</Text>
+      <Text style={[styles.headerCell, { width: 30 }]}>#</Text>
+      <Text style={[styles.headerCell, { flex: 2.5 }]}>Club</Text>
+      <Text style={[styles.headerCell, { flex: 1.2, textAlign: 'center' }]}>GB</Text>
+      <Text style={[styles.headerCell, { flex: 0.8, textAlign: 'center' }]}>W</Text>
+      <Text style={[styles.headerCell, { flex: 0.8, textAlign: 'center' }]}>D</Text>
+      <Text style={[styles.headerCell, { flex: 0.8, textAlign: 'center' }]}>L</Text>
+      <Text style={[styles.headerCell, { flex: 1, textAlign: 'center' }]}>Pts</Text>
     </View>
   );
 
   const renderItem = ({ item, index }: { item: Standing; index: number }) => (
-    <TouchableOpacity style={styles.row} activeOpacity={0.7}>
-      <View style={{ flex: 0.8 }}>
-        <View style={[styles.rankCircle, { backgroundColor: getRankColor(index) }]}>
-          <Text style={[styles.rankText, index < 3 && { color: '#000' }]}>{index + 1}</Text>
+    <View style={styles.row}>
+      <Text style={styles.rankText}>{index + 1}</Text>
+      
+      <View style={styles.clubCol}>
+        <View style={styles.clubBadge}>
+          <Text style={styles.clubInitials}>{getInitials(item.teamName)}</Text>
         </View>
+        <Text style={styles.clubName}>{item.teamName}</Text>
       </View>
-      <View style={{ flex: 3 }}>
-        <Text style={styles.teamName} numberOfLines={1}>{item.teamName}</Text>
-        <Text style={styles.schoolName} numberOfLines={1}>{item.schoolName}</Text>
-      </View>
-      <Text style={[styles.cell, { flex: 0.7, textAlign: 'center' }]}>{item.wins}</Text>
-      <Text style={[styles.cell, { flex: 0.7, textAlign: 'center' }]}>{item.losses}</Text>
-      <Text style={[styles.points, { flex: 1, textAlign: 'right' }]}>{item.points}</Text>
-    </TouchableOpacity>
+
+      <Text style={styles.gbText}>{item.gradeBand}</Text>
+      <Text style={styles.winText}>{item.wins}</Text>
+      <Text style={styles.drawText}>{item.draws}</Text>
+      <Text style={styles.lossText}>{item.losses}</Text>
+      <Text style={styles.pointsText}>{item.points}</Text>
+    </View>
   );
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#E31B23', '#961218']} style={[styles.header, { paddingTop: insets.top + 10 }]}>
+      <LinearGradient colors={['#001A3D', '#002C61']} style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <View style={styles.headerTop}>
-          <Image source={require('../../assets/images/logo1.png')} style={styles.logo} resizeMode="contain" />
-          <Text style={styles.headerTitle}>LEAGUE STANDINGS</Text>
+          <Image source={require('../../assets/favicon.png')} style={styles.logo} resizeMode="contain" />
+          <Text style={styles.headerTitle}>Standings</Text>
         </View>
+        <Text style={styles.headerSubtitle}>Spring 2026 Season</Text>
 
-        <FlatList
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          data={GRADE_BANDS}
-          keyExtractor={(item) => item}
-          renderItem={({ item }) => (
+        <View style={styles.tabsRow}>
+          {['Soccer', 'Flag Football', 'Basketball'].map((sport) => (
             <TouchableOpacity
-              onPress={() => setSelectedBand(item)}
-              style={[styles.tab, selectedBand === item && styles.tabActive]}
+              key={sport}
+              onPress={() => setSelectedSport(sport as SportType)}
+              style={styles.tab}
             >
-              <Text style={[styles.tabText, selectedBand === item && styles.tabTextActive]}>{item}</Text>
+              <Text style={[styles.tabText, selectedSport === sport && styles.tabTextActive]}>{sport}</Text>
+              {selectedSport === sport && <View style={styles.tabUnderline} />}
             </TouchableOpacity>
-          )}
-          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 5 }}
-        />
+          ))}
+        </View>
       </LinearGradient>
 
+      <View style={styles.filterSection}>
+        <Text style={styles.filterLabel}>Select Grade Band</Text>
+        <TouchableOpacity 
+          style={styles.filterDropdown}
+          onPress={() => setIsDropdownOpen(true)}
+        >
+          <Text style={styles.filterValue}>{selectedBand}</Text>
+          <MaterialIcons name="keyboard-arrow-down" size={24} color="#64748B" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Grade Band Selection Modal */}
+      <Modal
+        visible={isDropdownOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsDropdownOpen(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay} 
+          activeOpacity={1} 
+          onPress={() => setIsDropdownOpen(false)}
+        >
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Choose Grade Band</Text>
+            {GRADE_BANDS.map((band) => (
+              <TouchableOpacity
+                key={band}
+                style={[styles.modalItem, selectedBand === band && styles.modalItemActive]}
+                onPress={() => {
+                  setSelectedBand(band);
+                  setIsDropdownOpen(false);
+                }}
+              >
+                <Text style={[styles.modalItemText, selectedBand === band && styles.modalItemTextActive]}>
+                  {band}
+                </Text>
+                {selectedBand === band && <MaterialIcons name="check" size={20} color="#002C61" />}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
       {loading ? (
-        <View style={styles.center}><ActivityIndicator size="large" color="#E31B23" /></View>
+        <View style={styles.center}><ActivityIndicator size="large" color="#002C61" /></View>
       ) : (
         <FlatList
-          data={filteredStandings}
+          data={filteredData}
           renderItem={renderItem}
           ListHeaderComponent={renderHeader}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
+          ListFooterComponent={() => (
+            <View style={styles.legendBox}>
+              <View style={styles.legendRow}>
+                <Text style={styles.legendItem}>GB = Grade Band</Text>
+                <Text style={styles.legendItem}>W = Wins</Text>
+                <Text style={styles.legendItem}>D = Draws</Text>
+              </View>
+              <View style={styles.legendRow}>
+                <Text style={styles.legendItem}>L = Losses</Text>
+                <Text style={styles.legendItem}>Pts = Points</Text>
+              </View>
+            </View>
+          )}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <MaterialIcons name="leaderboard" size={60} color="#E5E7EB" />
@@ -127,29 +206,48 @@ export default function StandingsScreen() {
   );
 }
 
-import { MaterialIcons } from '@expo/vector-icons';
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: { paddingBottom: 20, borderBottomLeftRadius: 30, borderBottomRightRadius: 30 },
-  headerTop: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, marginBottom: 20 },
-  logo: { width: 32, height: 32 },
-  headerTitle: { color: '#FFF', fontSize: 16, fontWeight: '900', letterSpacing: 1.5 },
-  tab: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, marginRight: 8, backgroundColor: 'rgba(255,255,255,0.1)' },
-  tabActive: { backgroundColor: '#FFF' },
-  tabText: { fontSize: 12, fontWeight: '800', color: 'rgba(255,255,255,0.7)' },
-  tabTextActive: { color: '#E31B23' },
-  listContent: { padding: 20, paddingBottom: 100 },
-  tableHeader: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#002C61', borderRadius: 12, marginBottom: 15 },
-  headerText: { fontSize: 10, fontWeight: '900', color: '#FFF', letterSpacing: 1 },
-  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16, backgroundColor: '#FFF', borderRadius: 20, marginBottom: 12, borderWidth: 1.5, borderColor: '#F3F4F6', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8 },
-  rankCircle: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
-  rankText: { fontSize: 12, fontWeight: '900', color: '#6B7280' },
-  teamName: { fontSize: 14, fontWeight: '900', color: '#111827' },
-  schoolName: { fontSize: 11, color: '#9CA3AF', fontWeight: '700' },
-  cell: { fontSize: 14, fontWeight: '800', color: '#4B5563' },
-  points: { fontSize: 16, fontWeight: '900', color: '#002C61' },
+  header: { paddingBottom: 0 },
+  headerTop: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, marginBottom: 15 },
+  logo: { width: 35, height: 35 },
+  headerTitle: { color: '#FFF', fontSize: 22, fontWeight: '900' },
+  headerSubtitle: { color: 'rgba(255,255,255,0.8)', fontSize: 16, paddingHorizontal: 20, marginBottom: 25 },
+  tabsRow: { flexDirection: 'row', paddingHorizontal: 20, justifyContent: 'space-between' },
+  tab: { paddingVertical: 12, alignItems: 'center', flex: 1, position: 'relative' },
+  tabUnderline: { position: 'absolute', bottom: 0, width: '100%', height: 3, backgroundColor: '#E31B23' },
+  tabText: { fontSize: 14, fontWeight: '700', color: 'rgba(255,255,255,0.6)' },
+  tabTextActive: { color: '#FFF' },
+  filterSection: { padding: 20 },
+  filterLabel: { fontSize: 12, color: '#64748B', fontWeight: '600', marginBottom: 8 },
+  filterDropdown: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, backgroundColor: '#FFF', borderRadius: 12, borderWidth: 1, borderColor: '#F1F5F9', elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5 },
+  filterValue: { fontSize: 14, fontWeight: '700', color: '#1E293B' },
+  listContent: { paddingHorizontal: 20, paddingBottom: 100 },
+  tableHeader: { flexDirection: 'row', alignItems: 'center', paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
+  headerCell: { fontSize: 12, fontWeight: '900', color: '#1E293B' },
+  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
+  rankText: { width: 30, fontSize: 14, fontWeight: '900', color: '#4F46E5' },
+  clubCol: { flex: 2.5, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  clubBadge: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#E0E7FF', alignItems: 'center', justifyContent: 'center' },
+  clubInitials: { fontSize: 12, fontWeight: '900', color: '#1E40AF' },
+  clubName: { fontSize: 13, fontWeight: '800', color: '#1E293B' },
+  gbText: { flex: 1.2, fontSize: 12, color: '#64748B', fontWeight: '600', textAlign: 'center' },
+  winText: { flex: 0.8, fontSize: 14, fontWeight: '800', color: '#2563EB', textAlign: 'center' },
+  drawText: { flex: 0.8, fontSize: 14, fontWeight: '800', color: '#1E293B', textAlign: 'center' },
+  lossText: { flex: 0.8, fontSize: 14, fontWeight: '800', color: '#DC2626', textAlign: 'center' },
+  pointsText: { flex: 1, fontSize: 14, fontWeight: '900', color: '#16A34A', textAlign: 'center' },
+  legendBox: { marginTop: 30, padding: 15, backgroundColor: '#F0FDF4', borderRadius: 12, borderWidth: 1, borderColor: '#BBF7D0' },
+  legendRow: { flexDirection: 'row', justifyContent: 'center', gap: 15, marginBottom: 5 },
+  legendItem: { fontSize: 11, fontWeight: '700', color: '#166534' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   emptyContainer: { paddingVertical: 80, alignItems: 'center' },
   emptyText: { fontSize: 14, color: '#9CA3AF', fontWeight: '700', marginTop: 15 },
+  // Modal Styles
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  modalContent: { backgroundColor: '#FFF', width: '100%', borderRadius: 24, padding: 20, maxHeight: '80%' },
+  modalTitle: { fontSize: 18, fontWeight: '900', color: '#1E293B', marginBottom: 20, textAlign: 'center' },
+  modalItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
+  modalItemActive: { backgroundColor: '#F8FAFC' },
+  modalItemText: { fontSize: 15, fontWeight: '700', color: '#64748B' },
+  modalItemTextActive: { color: '#002C61' },
 });

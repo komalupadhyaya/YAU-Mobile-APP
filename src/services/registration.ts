@@ -59,7 +59,6 @@ function validateRegistrationData(data: RegistrationData): { valid: boolean; err
       if (!student.lastName.trim()) errors.push(`Student ${index + 1}: last name is required`);
       if (!student.gradeBand) errors.push(`Student ${index + 1}: grade band is required`);
       if (!student.schoolName.trim()) errors.push(`Student ${index + 1}: school is required`);
-      if (!student.sports || student.sports.length === 0) errors.push(`Student ${index + 1}: at least one sport is required`);
     });
   }
 
@@ -77,11 +76,16 @@ export async function registerMember(data: RegistrationData): Promise<{ success:
       const schoolName = student.schoolName.trim();
       const gradeBand = student.gradeBand;
       const bandKey = gradeBandToBandKey(gradeBand);
-      const sports = student.sports && student.sports.length > 0 ? student.sports : [data.sport];
+      
+      // Ensure at least one sport entry even if none selected
+      const sports = (student.sports && student.sports.length > 0) 
+        ? student.sports 
+        : (data.sport ? [data.sport] : ['General']); 
 
       // Create one student record per sport (for group assignment)
       return sports.map(sport => {
-        const groupId = generateGroupId(schoolName, gradeBand, sport);
+        const finalSport = sport || 'General';
+        const groupId = generateGroupId(schoolName, gradeBand, finalSport);
         return {
           firstName: student.firstName.trim(),
           lastName: student.lastName.trim(),

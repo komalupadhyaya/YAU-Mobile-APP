@@ -14,7 +14,7 @@ export default function TabLayout() {
     // Navigation guard: only run after loading completes to prevent unmatched route errors
     if (loading) return;
     if (hasRedirected.current) return;
-    
+
     // If no user is logged in, send to login screen
     if (!user) {
       if (__DEV__) console.log('[TabLayout] No user, redirecting to login');
@@ -100,7 +100,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'More',
+          title: 'ME',
           tabBarIcon: ({ color, focused }) => (
             <MaterialIcons name={focused ? 'person' : 'person-outline'} size={focused ? 26 : 24} color={color} />
           ),

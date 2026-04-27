@@ -34,6 +34,7 @@ export interface AdminPost {
   type?: 'admin' | 'team';
   role?: 'admin' | 'coach';
   replyCount?: number;
+  unreadCount?: number;
 }
 
 export interface MessageReply {
@@ -46,25 +47,94 @@ export interface MessageReply {
   timestamp: any;
 }
 
+export const MOCK_ADMIN_POSTS: AdminPost[] = [
+  {
+    id: 'mock1',
+    title: 'Summer Season Update',
+    description: 'Registration for the summer basketball season is now open. Sign up early for discounts!',
+    timestamp: { toDate: () => new Date(Date.now() - 3600000) } as any,
+    role: 'admin',
+    readBy: [],
+    unreadCount: 3
+  },
+  {
+    id: 'mock2',
+    title: 'Game Time Changed',
+    description: 'The game scheduled for Saturday has been moved to 2 PM.',
+    timestamp: { toDate: () => new Date(Date.now() - 86400000) } as any,
+    role: 'coach',
+    readBy: [],
+    unreadCount: 0
+  },
+  {
+    id: 'mock3',
+    title: 'Uniform Distribution',
+    description: 'Please pick up your uniforms at the main gym today.',
+    timestamp: { toDate: () => new Date(Date.now() - 172800000) } as any,
+    role: 'admin',
+    readBy: [],
+    unreadCount: 1
+  },
+  {
+    id: 'mock4',
+    title: 'Practice Canceled',
+    description: 'Due to rain, today\'s field practice is canceled. See you on Monday!',
+    timestamp: { toDate: () => new Date(Date.now() - 259200000) } as any,
+    role: 'coach',
+    readBy: [],
+    unreadCount: 5
+  }
+];
+
+// In-memory storage for mock replies (demo persistence)
+const mockRepliesStore: Record<string, MessageReply[]> = {
+  'mock1': [
+    { id: 'm1', postId: 'mock1', content: 'Thank you for the update! We will be there.', userName: 'Test Parent', userId: 'other', timestamp: Date.now() - 100000, userRole: 'parent' },
+    { id: 'm2', postId: 'mock1', content: 'Great, see you then!', userName: 'Coach Smith', userId: 'coach1', timestamp: Date.now() - 50000, userRole: 'coach' }
+  ],
+  'mock2': [
+    { id: 'm1', postId: 'mock2', content: 'Can we move it to 3 PM?', userName: 'Test Parent', userId: 'other', timestamp: Date.now() - 100000, userRole: 'parent' }
+  ],
+  'mock3': [],
+  'mock4': []
+};
+
+const mockReadState: Record<string, string[]> = {}; // { postId: [userIds] }
+
 export const sendReply = async (postId: string, userId: string, userName: string, userRole: 'parent' | 'coach' | 'admin', content: string) => {
   try {
     const { collection, addDoc, serverTimestamp, increment, updateDoc, doc } = await import('firebase/firestore');
     
     // 1. Add reply to sub-collection
-    const repliesRef = collection(db, "admin_posts", postId, "replies");
-    await addDoc(repliesRef, {
-      userId,
-      userName,
-      userRole,
-      content,
-      timestamp: serverTimestamp()
-    });
+    if (!postId.startsWith('mock')) {
+      const repliesRef = collection(db, "admin_posts", postId, "replies");
+      await addDoc(repliesRef, {
+        userId,
+        userName,
+        userRole,
+        content,
+        timestamp: serverTimestamp()
+      });
 
-    // 2. Increment reply count on parent post
-    const postRef = doc(db, "admin_posts", postId);
-    await updateDoc(postRef, {
-      replyCount: increment(1)
-    });
+      // 2. Increment reply count on parent post
+      const postRef = doc(db, "admin_posts", postId);
+      await updateDoc(postRef, {
+        replyCount: increment(1)
+      });
+    } else {
+      // Persist mock reply in memory for the session
+      if (!mockRepliesStore[postId]) mockRepliesStore[postId] = [];
+      mockRepliesStore[postId].push({
+        id: Date.now().toString(),
+        postId,
+        userId,
+        userName,
+        userRole,
+        content,
+        timestamp: Date.now()
+      });
+      console.log("[Mock Message] Simulation of sending reply to:", postId);
+    }
   } catch (error) {
     console.error("Error sending reply:", error);
     throw error;
@@ -72,6 +142,10 @@ export const sendReply = async (postId: string, userId: string, userName: string
 };
 
 export const subscribeToReplies = (postId: string, callback: (replies: MessageReply[]) => void) => {
+  if (postId.startsWith('mock')) {
+    callback(mockRepliesStore[postId] || []);
+    return () => {};
+  }
   const { collection, query, orderBy, onSnapshot } = require('firebase/firestore');
   const repliesRef = collection(db, "admin_posts", postId, "replies");
   const q = query(repliesRef, orderBy("timestamp", "asc"));
@@ -86,6 +160,14 @@ export const subscribeToReplies = (postId: string, callback: (replies: MessageRe
 };
 
 export const markMessageAsRead = async (messageId: string, userId: string) => {
+  if (!messageId || !userId) return;
+  if (messageId.startsWith('mock')) {
+    if (!mockReadState[messageId]) mockReadState[messageId] = [];
+    if (!mockReadState[messageId].includes(userId)) {
+      mockReadState[messageId].push(userId);
+    }
+    return;
+  }
   try {
     const { arrayUnion, updateDoc, doc } = await import('firebase/firestore');
     const docRef = doc(db, "admin_posts", messageId);
@@ -95,6 +177,28 @@ export const markMessageAsRead = async (messageId: string, userId: string) => {
   } catch (error) {
     console.error("Error marking message as read:", error);
   }
+};
+
+export const isMessageRead = (message: AdminPost, userId: string) => {
+  if (!userId) return false;
+  if (message.id.startsWith('mock')) {
+    return mockReadState[message.id]?.includes(userId) || message.readBy?.includes(userId);
+  }
+  return message.readBy?.includes(userId);
+};
+
+export const getTotalUnreadCount = (realMessages: AdminPost[], userId: string) => {
+  if (!userId) return 0;
+  
+  // Use real messages if they exist, otherwise use mocks
+  const pool = realMessages.length > 0 ? realMessages : MOCK_ADMIN_POSTS;
+  
+  return pool.reduce((acc, msg) => {
+    if (!isMessageRead(msg, userId)) {
+      return acc + (msg.unreadCount || 1);
+    }
+    return acc;
+  }, 0);
 };
 
 export const subscribeToMessages = (userGroupIds: string[], userSport?: string, userLocation?: string, userGrade?: string, callback?: (messages: AdminPost[]) => void) => {

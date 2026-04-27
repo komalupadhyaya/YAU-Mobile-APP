@@ -124,7 +124,7 @@ export default function LoginScreen() {
           await AsyncStorage.removeItem('@yau_remember_password');
         }
 
-        router.replace('/(tabs)/' as any);
+        router.replace('/(tabs)/messages' as any);
       } catch (apiError: any) {
         console.error('[Login] API Error:', apiError);
         Alert.alert('System Error', 'Unable to retrieve your profile. Please try again later.');

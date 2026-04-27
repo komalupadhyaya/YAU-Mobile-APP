@@ -29,7 +29,7 @@ export default function ProfileScreen() {
     <View style={styles.container}>
       <LinearGradient colors={['#001A3D', '#002C61']} style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <View style={styles.headerTop}>
-          <Image source={require('../../assets/images/logo1.png')} style={styles.logo} resizeMode="contain" />
+          <Image source={require('../../assets/favicon.png')} style={styles.logo} resizeMode="contain" />
           <Text style={styles.headerTitle}>MY ACCOUNT</Text>
         </View>
 

@@ -13,7 +13,9 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUser } from '../../src/context/UserContext';
-import { AdminPost, subscribeToMessages, markMessageAsRead } from '../../src/services/messaging';
+import { AdminPost, subscribeToMessages, markMessageAsRead, isMessageRead, MOCK_ADMIN_POSTS } from '../../src/services/messaging';
+import { useFocusEffect } from '@react-navigation/native';
+import React, { useCallback } from 'react';
 
 type MessageTab = 'all' | 'admin' | 'coaches';
 
@@ -24,15 +26,19 @@ export default function MessagesScreen() {
   const [messages, setMessages] = useState<AdminPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<MessageTab>('all');
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  useEffect(() => {
-    if (!user) { setLoading(false); return; }
-    const unsub = subscribeToMessages([], '', '', '', (fetched: AdminPost[]) => {
-      setMessages(fetched);
-      setLoading(false);
-    });
-    return () => { if (unsub) unsub(); };
-  }, [user]);
+  useFocusEffect(
+    useCallback(() => {
+      setRefreshKey(prev => prev + 1);
+      if (!user) { setLoading(false); return; }
+      const unsub = subscribeToMessages([], '', '', '', (fetched: AdminPost[]) => {
+        setMessages(fetched);
+        setLoading(false);
+      });
+      return () => { if (unsub) unsub(); };
+    }, [user])
+  );
 
   const handleOpenMessage = (msg: AdminPost) => {
     if (user?.id && (!msg.readBy || !msg.readBy.includes(user.id))) {
@@ -56,7 +62,7 @@ export default function MessagesScreen() {
     return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
   };
 
-  const filteredMessages = messages.filter(m => {
+  const displayedMessages = (messages.length > 0 ? messages : MOCK_ADMIN_POSTS).filter(m => {
     if (activeTab === 'all') return true;
     if (activeTab === 'admin') return m.role === 'admin';
     if (activeTab === 'coaches') return m.role === 'coach';
@@ -67,7 +73,7 @@ export default function MessagesScreen() {
     <View style={styles.container}>
       <LinearGradient colors={['#001A3D', '#002C61']} style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <View style={styles.headerTop}>
-          <Image source={require('../../assets/images/logo1.png')} style={styles.logo} resizeMode="contain" />
+          <Image source={require('../../assets/favicon.png')} style={styles.logo} resizeMode="contain" />
           <Text style={styles.headerTitle}>Messages</Text>
         </View>
         <Text style={styles.headerSubtitle}>Stay up to date with important updates from your coaches and YAU</Text>
@@ -95,7 +101,8 @@ export default function MessagesScreen() {
         <View style={styles.loading}><ActivityIndicator size="large" color="#002C61" /></View>
       ) : (
         <FlatList
-          data={filteredMessages}
+          data={displayedMessages}
+          extraData={refreshKey}
           keyExtractor={item => item.id}
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={
@@ -105,7 +112,7 @@ export default function MessagesScreen() {
             </View>
           }
           renderItem={({ item }) => {
-            const isRead = item.readBy?.includes(user?.id || '');
+            const isRead = isMessageRead(item, user?.id || '');
             const isCoach = item.role === 'coach';
 
             return (
@@ -130,7 +137,9 @@ export default function MessagesScreen() {
                     <Text style={styles.messageTitle} numberOfLines={1}>{item.title}</Text>
                     {!isRead && (
                       <View style={styles.unreadBadge}>
-                        <Text style={styles.unreadCount}>9</Text>
+                        <Text style={styles.unreadCount}>
+                          {item.unreadCount || 1}
+                        </Text>
                       </View>
                     )}
                   </View>
