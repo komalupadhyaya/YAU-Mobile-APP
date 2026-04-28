@@ -95,8 +95,8 @@ const MembersList: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
-  const filteredMembers = members.filter(member => {
-    const searchStr = `${member.firstName} ${member.lastName} ${member.email} ${member.students?.map(s => `${s.firstName} ${s.lastName}`).join(' ')}`.toLowerCase();
+  const filteredMembers = (members || []).filter(member => {
+    const searchStr = `${member.firstName || ''} ${member.lastName || ''} ${member.email || ''} ${member.students?.map(s => `${s.firstName || ''} ${s.lastName || ''}`).join(' ')}`.toLowerCase();
     const matchesSearch = searchStr.includes(searchTerm.toLowerCase());
     const matchesSchool = filterSchool === 'all' || member.students?.some(s => s.school_name === filterSchool);
     const matchesGradeBand = filterGradeBand === 'all' || member.students?.some(s => s.grade_band === filterGradeBand);
@@ -326,10 +326,16 @@ const MembersList: React.FC = () => {
                     <p className="text-[9px] text-indigo-400 font-black mt-0.5">{member.phone}</p>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button variant="ghost" size="sm" onClick={() => { setSelectedMember(member); setIsEditing(false); }} className="p-2 h-auto rounded-lg"><Eye size={16} /></Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleEditClick(member)} className="p-2 h-auto rounded-lg"><Edit2 size={16} /></Button>
-                      <Button variant="ghost" size="sm" onClick={() => { setSelectedMember(member); setIsDeleteConfirmOpen(true); }} className="p-2 h-auto rounded-lg text-red-500 hover:text-red-600"><Trash2 size={16} /></Button>
+                    <div className="flex items-center justify-end gap-1.5">
+                      <Button variant="secondary" size="sm" onClick={() => { setSelectedMember(member); setIsEditing(false); }} className="p-2 h-9 w-9 rounded-xl bg-gray-50 dark:bg-white/5 border-none hover:bg-indigo-50 dark:hover:bg-indigo-500/20 transition-colors">
+                        <Eye size={16} className="text-gray-400 dark:text-white/60 group-hover:text-indigo-600" />
+                      </Button>
+                      <Button variant="secondary" size="sm" onClick={() => handleEditClick(member)} className="p-2 h-9 w-9 rounded-xl bg-gray-50 dark:bg-white/5 border-none hover:bg-indigo-50 dark:hover:bg-indigo-500/20 transition-colors">
+                        <Edit2 size={16} className="text-gray-400 dark:text-white/60 group-hover:text-indigo-600" />
+                      </Button>
+                      <Button variant="secondary" size="sm" onClick={() => { setSelectedMember(member); setIsDeleteConfirmOpen(true); }} className="p-2 h-9 w-9 rounded-xl bg-gray-50 dark:bg-white/5 border-none hover:bg-red-50 dark:hover:bg-red-500/20 transition-colors">
+                        <Trash2 size={16} className="text-red-400 dark:text-red-500/80" />
+                      </Button>
                     </div>
                   </td>
                 </tr>
@@ -403,7 +409,7 @@ const MembersList: React.FC = () => {
                 /* View mode same as before but cleaner */
                 <div className="p-8 space-y-8">
                   <div className="flex items-center gap-6">
-                    <div className="w-20 h-20 bg-indigo-600 rounded-3xl flex items-center justify-center text-white text-3xl font-black">{(selectedMember.firstName[0] || '?')}</div>
+                    <div className="w-20 h-20 bg-indigo-600 rounded-3xl flex items-center justify-center text-white text-3xl font-black">{(selectedMember.firstName?.[0] || '?')}</div>
                     <div>
                       <h3 className="text-2xl font-black text-gray-900 dark:text-white uppercase tracking-tighter">{selectedMember.firstName} {selectedMember.lastName}</h3>
                       <p className="text-sm font-bold text-gray-400">{selectedMember.email} · {selectedMember.phone}</p>

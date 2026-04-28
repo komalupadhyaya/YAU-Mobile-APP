@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, onSnapshot, addDoc, updateDoc, doc, serverTimestamp, orderBy, deleteDoc, where } from 'firebase/firestore';
+import { collection, query, onSnapshot, addDoc, updateDoc, doc, serverTimestamp, orderBy, deleteDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Plus, Edit2, Trash2, X, Loader2, Trophy, Search } from 'lucide-react';
 import { Button } from './ui/Button';
@@ -75,11 +75,14 @@ const StandingsManager: React.FC = () => {
     });
 
     // Subscribe to schools for dropdown
-    const schoolsQ = query(collection(db, 'app_schools'), where('active', '==', true), orderBy('name', 'asc'));
+    const schoolsQ = query(collection(db, 'app_schools'), orderBy('name', 'asc'));
     const unsubSchools = onSnapshot(schoolsQ, (snapshot) => {
       const docs: AppSchool[] = [];
       snapshot.forEach((doc) => {
-        docs.push({ id: doc.id, name: doc.data().name, active: doc.data().active });
+        const data = doc.data();
+        if (data.active === true) {
+          docs.push({ id: doc.id, name: data.name, active: data.active });
+        }
       });
       setSchools(docs);
     });
@@ -168,9 +171,9 @@ const StandingsManager: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const filteredStandings = standings.filter(s => 
-    s.teamName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    s.schoolName.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredStandings = (standings || []).filter(s => 
+    (s.teamName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (s.schoolName || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (loading) {
@@ -232,7 +235,7 @@ const StandingsManager: React.FC = () => {
                         <Trophy size={20} />
                       </div>
                       <div>
-                        <span className="font-bold text-gray-900 dark:text-white block">{standing.teamName}</span>
+                        <span className="font-bold text-gray-900 dark:text-white block">{standing.teamName || '—'}</span>
                         <span className="text-xs text-gray-400 dark:text-white/40 block">{standing.schoolName}</span>
                       </div>
                     </div>

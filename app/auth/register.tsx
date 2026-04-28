@@ -333,6 +333,19 @@ export default function RegisterScreen() {
                       <Text style={[styles.inputValue, !student.gradeBand && styles.placeholderText]}>{student.gradeBand || 'Select Grade Band'}</Text>
                       <MaterialIcons name="keyboard-arrow-down" size={20} color="#9CA3AF" />
                     </TouchableOpacity>
+
+                    <Text style={styles.inputLabel}>Interested Sports (Select multiple)</Text>
+                    <View style={styles.chipsRow}>
+                      {SPORTS.map(sport => (
+                        <TouchableOpacity 
+                          key={sport} 
+                          style={[styles.chip, student.sports.includes(sport) && styles.chipSel]}
+                          onPress={() => toggleSport(idx, sport)}
+                        >
+                          <Text style={[styles.chipText, student.sports.includes(sport) && styles.chipTextSel]}>{sport}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
                   </View>
                 ))}
 
@@ -346,13 +359,25 @@ export default function RegisterScreen() {
 
                 <View style={styles.termsRow}>
                   <TouchableOpacity
+                    style={[styles.checkbox, smsConsent && styles.checkboxChecked]}
+                    onPress={() => setSmsConsent(!smsConsent)}
+                  >
+                    {smsConsent && <MaterialIcons name="check" size={14} color="#FFF" />}
+                  </TouchableOpacity>
+                  <Text style={styles.termsText}>
+                    I agree to receive text messages from YAU. Message and data rates may apply. Reply STOP to opt out or HELP for help. View our <Text onPress={() => setIsTermsModalOpen(true)} style={styles.linkText}>Privacy Policy</Text> and <Text onPress={() => setIsTermsModalOpen(true)} style={styles.linkText}>Terms of Use</Text>.
+                  </Text>
+                </View>
+
+                <View style={styles.termsRow}>
+                  <TouchableOpacity
                     style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}
                     onPress={() => setTermsAccepted(!termsAccepted)}
                   >
                     {termsAccepted && <MaterialIcons name="check" size={14} color="#FFF" />}
                   </TouchableOpacity>
                   <Text style={styles.termsText}>
-                    I agree to the <Text style={styles.linkText}>Terms of Service</Text> and <Text style={styles.linkText}>Privacy Policy</Text>
+                    I agree to the <Text onPress={() => setIsTermsModalOpen(true)} style={styles.linkText}>Terms of Service</Text> and <Text onPress={() => setIsTermsModalOpen(true)} style={styles.linkText}>Privacy Policy</Text>
                   </Text>
                 </View>
 
@@ -401,6 +426,26 @@ export default function RegisterScreen() {
           )} />
           <TouchableOpacity onPress={() => setIsSchoolModalOpen(false)}><Text style={styles.closeModal}>Close</Text></TouchableOpacity>
         </View></View>
+      </Modal>
+
+      <Modal visible={isTermsModalOpen} transparent animationType="fade">
+        <View style={styles.modalBg}>
+          <View style={[styles.modalContent, { maxHeight: '80%' }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Terms & Privacy Policy</Text>
+              <TouchableOpacity onPress={() => setIsTermsModalOpen(false)}><MaterialIcons name="close" size={24} color="#9CA3AF" /></TouchableOpacity>
+            </View>
+            <ScrollView style={{ marginTop: 10 }}>
+              <Text style={styles.termsContentText}>{TERMS_TEXT}</Text>
+            </ScrollView>
+            <TouchableOpacity 
+              style={[styles.primaryBtn, { marginTop: 20 }]} 
+              onPress={() => { setTermsAccepted(true); setIsTermsModalOpen(false); }}
+            >
+              <Text style={styles.primaryBtnText}>Accept & Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </Modal>
 
       <CountryPicker
@@ -523,4 +568,6 @@ const styles = StyleSheet.create({
   modalItem: { paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
   modalItemText: { fontSize: 15, fontWeight: '600' },
   closeModal: { textAlign: 'center', color: '#0047AB', fontWeight: '800', marginTop: 16 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  termsContentText: { fontSize: 13, color: '#4B5563', lineHeight: 20 },
 });

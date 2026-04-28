@@ -35,6 +35,7 @@ export interface AdminPost {
   role?: 'admin' | 'coach';
   replyCount?: number;
   unreadCount?: number;
+  adminUnreadCount?: number;
 }
 
 export interface MessageReply {
@@ -116,11 +117,20 @@ export const sendReply = async (postId: string, userId: string, userName: string
         timestamp: serverTimestamp()
       });
 
-      // 2. Increment reply count on parent post
+      // 2. Manage unread counters
       const postRef = doc(db, "admin_posts", postId);
-      await updateDoc(postRef, {
-        replyCount: increment(1)
-      });
+      if (userRole !== 'admin') {
+        // User replied: increase admin's unread counter
+        await updateDoc(postRef, {
+          adminUnreadCount: increment(1)
+        });
+      } else {
+        // Admin replied: increase user's unread counter and clear admin's counter
+        await updateDoc(postRef, {
+          unreadCount: increment(1),
+          adminUnreadCount: 0
+        });
+      }
     } else {
       // Persist mock reply in memory for the session
       if (!mockRepliesStore[postId]) mockRepliesStore[postId] = [];

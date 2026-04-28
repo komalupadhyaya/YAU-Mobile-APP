@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { collection, addDoc, serverTimestamp, onSnapshot, query, orderBy, limit, where, doc, updateDoc, increment } from 'firebase/firestore';
+import React, { useState, useEffect, useRef } from 'react';
+import { collection, addDoc, serverTimestamp, onSnapshot, query, orderBy, limit, doc, updateDoc, increment } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Send, Target, Plus, Trash2, History, ChevronDown, ChevronUp, MessageSquare, X } from 'lucide-react';
 import { Card } from './ui/Card';
@@ -23,6 +23,7 @@ interface SentMessage {
   targetGroups?: TargetGroup[];
   createdAt: any;
   replyCount?: number;
+  adminUnreadCount?: number;
 }
 
 interface MessageReply {
@@ -42,15 +43,15 @@ const SPORTS = ['Flag Football', 'Soccer', 'Cheer', 'Basketball'];
 const Messaging: React.FC = () => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  
+
   // Builder state
   const [currentSchool, setCurrentSchool] = useState('all');
   const [currentGradeBand, setCurrentGradeBand] = useState('all');
   const [currentSport, setCurrentSport] = useState('all');
   const [targetGroups, setTargetGroups] = useState<TargetGroup[]>([]);
-  
+
   // Metadata state
-  const [schools, setSchools] = useState<{id: string, name: string}[]>([]);
+  const [schools, setSchools] = useState<{ id: string, name: string }[]>([]);
   const [history, setHistory] = useState<SentMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(true);
@@ -60,11 +61,16 @@ const Messaging: React.FC = () => {
   const [replies, setReplies] = useState<MessageReply[]>([]);
   const [replyText, setReplyText] = useState('');
   const [sendingReply, setSendingReply] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const qSchools = query(collection(db, 'app_schools'), where('active', '==', true), orderBy('name', 'asc'));
+    const qSchools = query(collection(db, 'app_schools'), orderBy('name', 'asc'));
     const unsubSchools = onSnapshot(qSchools, (snap) => {
-      setSchools(snap.docs.map(doc => ({ id: doc.id, name: doc.data().name })));
+      setSchools(
+        snap.docs
+          .filter(doc => doc.data().active === true)
+          .map(doc => ({ id: doc.id, name: doc.data().name }))
+      );
     });
 
     const qHistory = query(collection(db, 'admin_posts'), orderBy('createdAt', 'desc'), limit(15));
@@ -77,13 +83,22 @@ const Messaging: React.FC = () => {
 
   useEffect(() => {
     if (selectedPost) {
-      const qReplies = query(collection(db, 'admin_posts', selectedPost.id, 'replies'), orderBy('timestamp', 'asc'));
-      const unsub = onSnapshot(qReplies, (snap) => {
+      const unsubReplies = onSnapshot(query(collection(db, 'admin_posts', selectedPost.id, 'replies'), orderBy('timestamp', 'asc')), (snap) => {
         setReplies(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as MessageReply)));
       });
-      return () => unsub();
+
+      // Reset unread count for admin when opening
+      updateDoc(doc(db, 'admin_posts', selectedPost.id), { adminUnreadCount: 0 }).catch(() => {});
+
+      return () => unsubReplies();
     }
   }, [selectedPost]);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [replies]);
 
   const addGroup = () => {
     if (targetGroups.some(g => g.school === currentSchool && g.gradeBand === currentGradeBand && g.sport === currentSport)) {
@@ -128,8 +143,11 @@ const Messaging: React.FC = () => {
         content: replyText.trim(),
         timestamp: serverTimestamp()
       });
-      await updateDoc(doc(db, 'admin_posts', selectedPost.id), {
-        replyCount: increment(1)
+      // 2. Manage unread counters
+      const postRef = doc(db, "admin_posts", selectedPost.id);
+      await updateDoc(postRef, {
+        unreadCount: increment(1),
+        adminUnreadCount: 0
       });
       setReplyText('');
       toast.success('Reply sent.');
@@ -143,7 +161,7 @@ const Messaging: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight">Messaging Center</h1>
-          <p className="text-gray-500 dark:text-white/60 font-medium tracking-tight">Broadcast alerts and manage two-way conversations with members.</p>
+          <p className="text-gray-500 dark:text-gray/60 font-medium tracking-tight">Broadcast alerts and manage two-way conversations with members.</p>
         </div>
       </div>
 
@@ -175,11 +193,11 @@ const Messaging: React.FC = () => {
                       <p className="text-xs text-gray-500 line-clamp-1">{msg.description}</p>
                     </div>
                     <div className="flex items-center gap-3">
-                       <Button variant="ghost" size="sm" onClick={() => setSelectedPost(msg)} className="relative h-10 px-4 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl border-none">
-                          <MessageSquare size={16} className="mr-2" /> 
-                          {msg.replyCount || 0} Replies
-                          {msg.replyCount! > 0 && <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse shadow-sm" />}
-                       </Button>
+                      <Button variant="ghost" size="sm" onClick={() => setSelectedPost(msg)} className="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white relative h-10 px-4 0 text-indigo-700 rounded-xl border-none">
+                        <MessageSquare size={16} className="mr-2" />
+                        {msg.adminUnreadCount || 0} New Replies
+                        {(msg.adminUnreadCount || 0) > 0 && <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse shadow-sm" />}
+                      </Button>
                     </div>
                   </div>
                 ))}
@@ -191,11 +209,11 @@ const Messaging: React.FC = () => {
         <div className="space-y-6">
           <Card title="Audience Targeting" headerAction={<Target className="w-5 h-5 text-red-500" />}>
             <div className="space-y-4">
-              <Select label="School" value={currentSchool} onChange={(e) => setCurrentSchool(e.target.value)} options={[{label: 'All Schools', value: 'all'}, ...schools.map(s => ({label: s.name, value: s.name}))]} />
-              <Select label="Grade Band" value={currentGradeBand} onChange={(e) => setCurrentGradeBand(e.target.value)} options={[{label: 'All Grades', value: 'all'}, ...GRADE_BANDS.map(b => ({label: b, value: b}))]} />
-              <Select label="Sport" value={currentSport} onChange={(e) => setCurrentSport(e.target.value)} options={[{label: 'All Sports', value: 'all'}, ...SPORTS.map(s => ({label: s, value: s}))]} />
+              <Select label="School" value={currentSchool} onChange={(e) => setCurrentSchool(e.target.value)} options={[{ label: 'All Schools', value: 'all' }, ...schools.map(s => ({ label: s.name, value: s.name }))]} />
+              <Select label="Grade Band" value={currentGradeBand} onChange={(e) => setCurrentGradeBand(e.target.value)} options={[{ label: 'All Grades', value: 'all' }, ...GRADE_BANDS.map(b => ({ label: b, value: b }))]} />
+              <Select label="Sport" value={currentSport} onChange={(e) => setCurrentSport(e.target.value)} options={[{ label: 'All Sports', value: 'all' }, ...SPORTS.map(s => ({ label: s, value: s }))]} />
               <div className="flex gap-2">
-                <Button variant="outline" className="flex-1 font-black text-[10px]" onClick={() => setTargetGroups([{school: 'all', gradeBand: 'all', sport: 'all'}])}>Select All</Button>
+                <Button variant="outline" className="flex-1 font-black text-[10px]" onClick={() => setTargetGroups([{ school: 'all', gradeBand: 'all', sport: 'all' }])}>Select All</Button>
                 <Button variant="primary" className="flex-1 font-black text-[10px]" onClick={addGroup} leftIcon={<Plus size={14} />}>Add Group</Button>
               </div>
               <div className="space-y-2 mt-4">
@@ -214,33 +232,34 @@ const Messaging: React.FC = () => {
       {/* Reply Modal */}
       {selectedPost && (
         <div className="fixed inset-0 bg-indigo-950/40 backdrop-blur-md flex items-center justify-center z-[200] p-4">
-          <Card className="w-full max-w-2xl h-[80vh] flex flex-col shadow-2xl overflow-hidden border-none p-0"
+          <Card className="w-full max-w-2xl h-[85vh] flex flex-col shadow-2xl overflow-hidden border-none p-0"
+            contentClassName="flex-1 flex flex-col min-h-0"
             title={`Conversation: ${selectedPost.title}`}
             headerAction={<button onClick={() => setSelectedPost(null)}><X size={24} className="text-gray-400 hover:text-red-500" /></button>}
           >
-            <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50/50 custom-scrollbar">
-              <div className="p-4 bg-white border border-indigo-100 rounded-2xl shadow-sm mb-6">
-                 <div className="flex items-center gap-2 mb-2"><Badge variant="primary" className="uppercase text-[9px]">Original Broadcast</Badge><span className="text-[10px] text-gray-400 font-bold">{selectedPost.createdAt?.toDate().toLocaleString()}</span></div>
-                 <p className="text-sm font-bold text-gray-900">{selectedPost.title}</p>
-                 <p className="text-xs text-gray-600 mt-2 leading-relaxed">{selectedPost.description}</p>
+            <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar bg-gray-50/30 dark:bg-black/20">
+              <div className="p-4 bg-white dark:bg-white/5 border border-indigo-100 dark:border-white/10 rounded-2xl shadow-sm mb-6">
+                <div className="flex items-center gap-2 mb-2"><Badge variant="primary" className="uppercase text-[9px]">Original Broadcast</Badge><span className="text-[10px] text-gray-400 dark:text-white/40 font-bold">{selectedPost.createdAt?.toDate().toLocaleString()}</span></div>
+                <p className="text-sm font-bold text-gray-900 dark:text-white">{selectedPost.title}</p>
+                <p className="text-xs text-gray-600 dark:text-white/60 mt-2 leading-relaxed">{selectedPost.description}</p>
               </div>
 
               {replies.map(reply => (
                 <div key={reply.id} className={`flex ${reply.userRole === 'admin' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[80%] p-4 rounded-2xl shadow-sm ${reply.userRole === 'admin' ? 'bg-indigo-600 text-white' : 'bg-white border border-gray-100'}`}>
+                  <div className={`max-w-[80%] p-4 rounded-2xl shadow-sm ${reply.userRole === 'admin' ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10'}`}>
                     <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-[10px] font-black uppercase tracking-widest ${reply.userRole === 'admin' ? 'text-indigo-100' : 'text-indigo-600'}`}>{reply.userName}</span>
-                      <span className="text-[8px] opacity-60 font-bold">{reply.timestamp?.toDate().toLocaleTimeString()}</span>
+                      <span className={`text-[10px] font-black uppercase tracking-widest ${reply.userRole === 'admin' ? 'text-indigo-100' : 'text-indigo-600 dark:text-indigo-400'}`}>{reply.userName}</span>
+                      <span className="text-[8px] opacity-60 font-bold dark:text-white/40">{reply.timestamp?.toDate().toLocaleTimeString()}</span>
                     </div>
-                    <p className="text-sm leading-relaxed">{reply.content}</p>
+                    <p className={`text-sm leading-relaxed ${reply.userRole === 'admin' ? 'text-white' : 'text-gray-900 dark:text-white'}`}>{reply.content}</p>
                   </div>
                 </div>
               ))}
               {replies.length === 0 && <div className="text-center py-20 text-gray-400 italic">No member replies yet.</div>}
             </div>
 
-            <form onSubmit={handleSendAdminReply} className="p-4 bg-white border-t border-gray-100 flex gap-4">
-              <input type="text" placeholder="Type an official response..." className="flex-1 px-5 bg-gray-50 border border-gray-100 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-600/10 focus:border-indigo-600" value={replyText} onChange={(e) => setReplyText(e.target.value)} />
+            <form onSubmit={handleSendAdminReply} className="p-4 bg-white dark:bg-black border-t border-gray-100 dark:border-white/10 flex gap-4">
+              <input type="text" placeholder="Type an official response..." className="flex-1 px-5 bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-indigo-600/10 focus:border-indigo-600 dark:text-white" value={replyText} onChange={(e) => setReplyText(e.target.value)} />
               <Button type="submit" variant="primary" loading={sendingReply} disabled={!replyText.trim()} className="px-8 font-black uppercase tracking-widest">Reply</Button>
             </form>
           </Card>

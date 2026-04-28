@@ -217,12 +217,12 @@ const CoachManager: React.FC = () => {
                     </Badge>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <div className="flex justify-end gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
+                    <div className="flex justify-end gap-1">
                       <Button variant="ghost" size="sm" className="w-9 h-9 p-0" onClick={() => openEditModal(coach)}>
-                        <Edit2 size={14} className="text-gray-400 dark:text-white/40 hover:text-indigo-600 dark:hover:text-white" />
+                        <Edit2 size={14} className="text-gray-400 dark:text-white/40 hover:text-indigo-600 dark:hover:text-white transition-colors" />
                       </Button>
                       <Button variant="ghost" size="sm" className="w-9 h-9 p-0" onClick={() => handleDelete(coach.id, `${coach.firstName} ${coach.lastName}`)}>
-                        <Trash2 size={14} className="text-gray-400 dark:text-white/40 hover:text-red-500 dark:hover:text-red-400" />
+                        <Trash2 size={14} className="text-gray-400 dark:text-white/40 hover:text-red-500 dark:hover:text-red-400 transition-colors" />
                       </Button>
                     </div>
                   </td>

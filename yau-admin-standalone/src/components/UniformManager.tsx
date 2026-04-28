@@ -46,15 +46,15 @@ const UniformManager: React.FC = () => {
     }
   };
 
-  const filteredOrders = orders.filter(order => {
-    const matchesSearch = 
-      order.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.parentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.team.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = 
-      filterStatus === 'all' || 
-      (filterStatus === 'received' && order.received) || 
+  const filteredOrders = (orders || []).filter(order => {
+    const matchesSearch =
+      (order.studentName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (order.parentName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (order.team || '').toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesStatus =
+      filterStatus === 'all' ||
+      (filterStatus === 'received' && order.received) ||
       (filterStatus === 'pending' && !order.received);
 
     return matchesSearch && matchesStatus;
@@ -85,71 +85,79 @@ const UniformManager: React.FC = () => {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="p-4 flex items-center gap-4 border-none shadow-sm bg-indigo-50 dark:bg-indigo-900/20">
-          <div className="w-12 h-12 rounded-2xl bg-indigo-500 text-white flex items-center justify-center shadow-lg shadow-indigo-500/20">
-            <Shirt size={24} />
-          </div>
-          <div>
-            <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest leading-none mb-1">Total Orders</p>
-            <p className="text-2xl font-black text-indigo-900 dark:text-white">{summary?.totalOrders || 0}</p>
-          </div>
-        </Card>
-
-        <Card className="p-4 flex items-center gap-4 border-none shadow-sm bg-emerald-50 dark:bg-emerald-500/20">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/20">
-            <CheckCircle2 size={24} />
-          </div>
-          <div>
-            <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest leading-none mb-1">Distributed</p>
-            <p className="text-2xl font-black text-emerald-900 dark:text-white">{summary?.received || 0}</p>
+        <Card className="border-none shadow-sm bg-indigo-50 dark:bg-indigo-900/20">
+          <div className="flex items-center gap-6">
+            <div className="w-14 h-14 rounded-2xl bg-indigo-500 text-white flex items-center justify-center shadow-lg shadow-indigo-500/20 shrink-0">
+              <Shirt size={28} />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest leading-none mb-2">Total Orders</p>
+              <p className="text-3xl font-black text-indigo-900 dark:text-white">{summary?.totalOrders || 0}</p>
+            </div>
           </div>
         </Card>
 
-        <Card className="p-4 flex items-center gap-4 border-none shadow-sm bg-amber-50 dark:bg-amber-500/20">
-          <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-lg shadow-amber-500/20">
-            <Clock size={24} />
-          </div>
-          <div>
-            <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest leading-none mb-1">Pending Delivery</p>
-            <p className="text-2xl font-black text-amber-900 dark:text-white">{summary?.notReceived || 0}</p>
+        <Card className="border-none shadow-sm bg-emerald-50 dark:bg-emerald-500/20">
+          <div className="flex items-center gap-6">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/20 shrink-0">
+              <CheckCircle2 size={28} />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest leading-none mb-2">Distributed</p>
+              <p className="text-3xl font-black text-emerald-900 dark:text-white">{summary?.received || 0}</p>
+            </div>
           </div>
         </Card>
 
-        <Card className="p-4 flex items-center gap-4 border-none shadow-sm bg-rose-50 dark:bg-rose-500/20">
-          <div className="w-12 h-12 rounded-2xl bg-rose-500 text-white flex items-center justify-center shadow-lg shadow-rose-500/20">
-            <XCircle size={24} />
+        <Card className="border-none shadow-sm bg-yellow-50 dark:bg-yellow-500/20">
+          <div className="flex items-center gap-6">
+            <div className="w-14 h-14 rounded-2xl bg-yellow-500 text-white flex items-center justify-center shadow-lg shadow-yellow-500/20 shrink-0">
+              <Clock size={28} />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-yellow-600 dark:text-yellow-400 uppercase tracking-widest leading-none mb-2">Pending Delivery</p>
+              <p className="text-3xl font-black text-yellow-900 dark:text-white">{summary?.notReceived || 0}</p>
+            </div>
           </div>
-          <div>
-            <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest leading-none mb-1">Unpaid Orders</p>
-            <p className="text-2xl font-black text-rose-900 dark:text-white">{summary?.pendingPayment || 0}</p>
+        </Card>
+
+        <Card className="border-none shadow-sm bg-rose-50 dark:bg-rose-500/20">
+          <div className="flex items-center gap-6">
+            <div className="w-14 h-14 rounded-2xl bg-rose-500 text-white flex items-center justify-center shadow-lg shadow-rose-500/20 shrink-0">
+              <XCircle size={28} />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest leading-none mb-2">Unpaid Orders</p>
+              <p className="text-3xl font-black text-rose-900 dark:text-white">{summary?.pendingPayment || 0}</p>
+            </div>
           </div>
         </Card>
       </div>
 
       <div className="bg-white dark:bg-black rounded-3xl shadow-sm border border-gray-100 dark:border-white/10 overflow-hidden">
         <div className="p-6 border-b border-gray-100 dark:border-white/10 flex flex-col lg:flex-row justify-between items-center gap-4">
-           <div className="w-full lg:w-96">
-              <Input 
-                placeholder="Search by student, parent or team..." 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                leftIcon={<Search size={16} className="text-gray-400 dark:text-white/60" />}
-              />
-           </div>
-           <div className="flex items-center gap-3 w-full lg:w-auto">
-             <Select 
-                label="Filter Distribution"
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value as any)}
-                options={[
-                  { label: 'All Orders', value: 'all' },
-                  { label: 'Distributed', value: 'received' },
-                  { label: 'Pending', value: 'pending' }
-                ]}
-                className="w-full lg:w-48"
-             />
-             <Badge variant="info" className="px-4 py-2.5 text-xs whitespace-nowrap">{filteredOrders.length} Results Found</Badge>
-           </div>
+          <div className="w-full lg:w-96">
+            <Input
+              placeholder="Search by student, parent or team..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              leftIcon={<Search size={16} className="text-gray-400 dark:text-white/60" />}
+            />
+          </div>
+          <div className="flex items-center gap-3 w-full lg:w-auto">
+            <Select
+              label=""
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value as any)}
+              options={[
+                { label: 'All Orders', value: 'all' },
+                { label: 'Distributed', value: 'received' },
+                { label: 'Pending', value: 'pending' }
+              ]}
+              className="w-full lg:w-48"
+            />
+            <Badge variant="info" className="px-4 py-2.5 text-xs whitespace-nowrap">{filteredOrders.length} Results Found</Badge>
+          </div>
         </div>
 
         <div className="overflow-x-auto custom-scrollbar">
@@ -169,7 +177,7 @@ const UniformManager: React.FC = () => {
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-4">
                       <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-black">
-                        {order.studentName[0].toUpperCase()}
+                        {order.studentName?.[0]?.toUpperCase() || '?'}
                       </div>
                       <div>
                         <p className="font-bold text-gray-900 dark:text-white group-hover:text-indigo-900 dark:group-hover:text-indigo-300">
@@ -184,7 +192,7 @@ const UniformManager: React.FC = () => {
                   <td className="px-6 py-4">
                     <div className="flex flex-col gap-1">
                       <Badge variant="secondary" className="bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-none font-bold w-fit">
-                         {order.team.toUpperCase()}
+                        {order.team.toUpperCase()}
                       </Badge>
                       <span className="text-[10px] font-bold text-gray-400 flex items-center italic">
                         {order.ageGroup}
@@ -193,14 +201,14 @@ const UniformManager: React.FC = () => {
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
-                       <div className="text-center px-2 py-1 bg-gray-50 dark:bg-white/5 rounded-lg border border-gray-100 dark:border-white/10">
-                          <p className="text-[8px] font-black text-gray-400 uppercase">Top</p>
-                          <p className="text-xs font-bold text-gray-900 dark:text-white">{order.uniformTop}</p>
-                       </div>
-                       <div className="text-center px-2 py-1 bg-gray-50 dark:bg-white/5 rounded-lg border border-gray-100 dark:border-white/10">
-                          <p className="text-[8px] font-black text-gray-400 uppercase">Bottom</p>
-                          <p className="text-xs font-bold text-gray-900 dark:text-white">{order.uniformBottom}</p>
-                       </div>
+                      <div className="text-center px-2 py-1 bg-gray-50 dark:bg-white/5 rounded-lg border border-gray-100 dark:border-white/10">
+                        <p className="text-[8px] font-black text-gray-400 uppercase">Top</p>
+                        <p className="text-xs font-bold text-gray-900 dark:text-white">{order.uniformTop}</p>
+                      </div>
+                      <div className="text-center px-2 py-1 bg-gray-50 dark:bg-white/5 rounded-lg border border-gray-100 dark:border-white/10">
+                        <p className="text-[8px] font-black text-gray-400 uppercase">Bottom</p>
+                        <p className="text-xs font-bold text-gray-900 dark:text-white">{order.uniformBottom}</p>
+                      </div>
                     </div>
                   </td>
                   <td className="px-6 py-4">
@@ -209,19 +217,19 @@ const UniformManager: React.FC = () => {
                         {order.received ? 'DISTRIBUTED' : 'PENDING'}
                       </Badge>
                       <Badge variant={order.paymentStatus === 'paid' ? 'success' : 'error'} className="text-[8px] h-4">
-                        {order.paymentStatus.toUpperCase()}
+                        {(order.paymentStatus || 'UNPAID').toUpperCase()}
                       </Badge>
                     </div>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <Button 
-                      variant={order.received ? 'ghost' : 'primary'} 
+                    <Button
+                      variant={order.received ? 'secondary' : 'primary'}
                       size="sm"
                       onClick={() => handleToggleReceived(order.id, order.received)}
                       loading={actionLoading === order.id}
                       className="text-[10px] font-black uppercase tracking-widest h-9"
                     >
-                      {order.received ? 'Recall' : 'Distribute'}
+                      {order.received ? 'Recall Item' : 'Distribute'}
                     </Button>
                   </td>
                 </tr>

@@ -73,7 +73,7 @@ export interface UniformOrder {
 export const uniformService = {
   getOrders: async (filters: any = {}): Promise<UniformOrder[]> => {
     const response = await api.get('/uniforms', { params: filters });
-    return response.data.uniforms;
+    return response.data.uniforms || [];
   },
 
   updateStatus: async (orderId: string, received: boolean) => {

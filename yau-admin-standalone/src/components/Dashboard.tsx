@@ -21,6 +21,7 @@ import {
 import { db } from '../lib/firebase';
 import { Card } from './ui/Card';
 import { Badge } from './ui/Badge';
+import { Link } from 'react-router-dom';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface StatCard { label: string; value: number | string; icon: React.ReactNode; color: string; bg: string; }
@@ -35,6 +36,7 @@ interface UpcomingGame {
 }
 interface SportBreakdown { sport: string; count: number; }
 interface GradeBreakdown { band: string; count: number; }
+interface SchoolBreakdown { school: string; count: number; }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function timeAgo(ts: any): string {
@@ -72,6 +74,7 @@ const Dashboard: React.FC = () => {
   const [upcomingGames, setUpcomingGames] = useState<UpcomingGame[]>([]);
   const [sportBreakdown, setSportBreakdown] = useState<SportBreakdown[]>([]);
   const [gradeBreakdown, setGradeBreakdown] = useState<GradeBreakdown[]>([]);
+  const [schoolBreakdown, setSchoolBreakdown] = useState<SchoolBreakdown[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -115,6 +118,15 @@ const Dashboard: React.FC = () => {
         gradeMap[band] = (gradeMap[band] || 0) + 1;
       });
       setGradeBreakdown(Object.entries(gradeMap).map(([band, count]) => ({ band, count })).sort((a, b) => a.band.localeCompare(b.band)));
+
+      // School breakdown
+      const schoolMap: Record<string, number> = {};
+      snap.docs.forEach(d => {
+        const data = d.data();
+        const school = data.students?.[0]?.school_name || 'Other';
+        schoolMap[school] = (schoolMap[school] || 0) + 1;
+      });
+      setSchoolBreakdown(Object.entries(schoolMap).map(([school, count]) => ({ school, count })).sort((a, b) => b.count - a.count));
 
       setLoading(false);
     });
@@ -229,19 +241,19 @@ const Dashboard: React.FC = () => {
             <div className="grid grid-cols-2 gap-3">
               {[
                 { label: 'Send Message', icon: <Bell size={20} />, color: '#1565C0', bg: '#EFF6FF', href: '/messaging' },
-                { label: 'Add Game',     icon: <Calendar size={20} />, color: '#2E7D32', bg: '#F0FDF4', href: '/schedule' },
+                { label: 'Add Game',     icon: <Calendar size={20} />, color: '#2E7D32', bg: '#F0FDF4', href: '/schedules?action=add' },
                 { label: 'Add School',  icon: <School size={20} />, color: '#AD1457', bg: '#FDF2F8', href: '/schools' },
                 { label: 'View Members', icon: <Users size={20} />, color: '#E65100', bg: '#FFF7ED', href: '/members' },
               ].map(a => (
-                <a
+                <Link
                   key={a.label}
-                  href={a.href}
+                  to={a.href}
                   className="flex flex-col items-center gap-2 p-4 rounded-2xl border border-gray-100 dark:border-white/10 hover:shadow-md transition-all cursor-pointer"
                   style={{ backgroundColor: a.bg + '33' }}
                 >
                   <div className="p-2.5 rounded-xl" style={{ backgroundColor: a.bg, color: a.color }}>{a.icon}</div>
                   <span className="text-[10px] font-black uppercase tracking-wider text-gray-600 dark:text-white/60 text-center leading-tight">{a.label}</span>
-                </a>
+                </Link>
               ))}
             </div>
           </Card>
@@ -332,6 +344,31 @@ const Dashboard: React.FC = () => {
                   </div>
                   <div className="h-2 bg-gray-100 dark:bg-white/10 rounded-full overflow-hidden">
                     <div className="h-2 bg-indigo-500 rounded-full transition-all duration-700" style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      </div>
+
+      {/* ── Membership by School ── */}
+      <div className="grid grid-cols-1 gap-6">
+        <Card title="Members by School">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {schoolBreakdown.length === 0 ? <p className="text-sm text-gray-400 text-center py-4 col-span-full">No data</p> : schoolBreakdown.map(({ school, count }) => {
+              const pct = totalMembers > 0 ? Math.round((count / totalMembers) * 100) : 0;
+              return (
+                <div key={school} className="p-4 bg-gray-50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/10">
+                  <div className="flex items-center justify-between text-sm mb-2">
+                    <span className="font-bold text-gray-700 dark:text-white truncate flex-1 mr-2">{school}</span>
+                    <span className="font-black text-indigo-600 dark:text-indigo-400">{count}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 h-2 bg-gray-200 dark:bg-white/10 rounded-full overflow-hidden">
+                      <div className="h-2 bg-indigo-500 rounded-full transition-all duration-700" style={{ width: `${pct}%` }} />
+                    </div>
+                    <span className="text-[10px] font-black text-gray-400 w-8">{pct}%</span>
                   </div>
                 </div>
               );

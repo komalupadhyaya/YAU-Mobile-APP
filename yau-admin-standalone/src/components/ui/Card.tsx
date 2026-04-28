@@ -7,6 +7,7 @@ interface CardProps {
   subtitle?: string;
   footer?: React.ReactNode;
   headerAction?: React.ReactNode;
+  contentClassName?: string;
 }
 
 export const Card: React.FC<CardProps> = ({
@@ -16,9 +17,10 @@ export const Card: React.FC<CardProps> = ({
   subtitle,
   footer,
   headerAction,
+  contentClassName = 'p-6',
 }) => {
   return (
-    <div className={`bg-white dark:bg-black border border-gray-100 dark:border-white/10 rounded-2xl shadow-sm overflow-hidden transition-colors duration-300 ${className}`}>
+    <div className={`bg-white dark:bg-black border border-gray-100 dark:border-white/10 rounded-2xl shadow-sm transition-colors duration-300 ${!className.includes('overflow-') ? 'overflow-hidden' : ''} ${className}`}>
       {(title || headerAction) && (
         <div className="px-6 py-4 border-b border-gray-50 dark:border-white/10 flex items-center justify-between">
           <div>
@@ -28,7 +30,7 @@ export const Card: React.FC<CardProps> = ({
           {headerAction}
         </div>
       )}
-      <div className="p-6">
+      <div className={contentClassName}>
         {children}
       </div>
       {footer && (
