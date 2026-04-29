@@ -11,6 +11,8 @@ import CoachManager from './components/CoachManager';
 import UniformManager from './components/UniformManager';
 import StandingsManager from './components/StandingsManager';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { collection, onSnapshot, query, where, orderBy } from 'firebase/firestore';
+import { db } from './lib/firebase';
 
 function SidebarContent({ collapsed, onItemClick }: { collapsed: boolean; onItemClick?: () => void }) {
   const location = useLocation();
@@ -29,7 +31,7 @@ function SidebarContent({ collapsed, onItemClick }: { collapsed: boolean; onItem
   return (
     <div className="flex flex-col h-full bg-indigo-900 dark:bg-indigo-950 text-indigo-100 transition-colors duration-300">
       <div className={`p-2 flex items-center ${collapsed ? 'justify-center' : 'space-x-3'}`}>
-        <img src="/icon.png" alt="Logo" className="w-10 h-10 rounded-xl shadow-lg border border-white/10" />
+        <img src="/favicon.png" alt="Logo" className="w-15 h-10 rounded-xl shadow-lg border border-white/10" />
         {!collapsed && <span className="font-black text-xl tracking-tighter text-white uppercase">YAU Panel</span>}
       </div>
 
@@ -108,7 +110,27 @@ function AppLayout() {
     const saved = localStorage.getItem('admin-theme');
     return saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches);
   });
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [unreadPosts, setUnreadPosts] = useState<any[]>([]);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
   const { logout } = useAuth();
+
+  useEffect(() => {
+    // Listen for admin posts with unread replies
+    const q = query(collection(db, 'admin_posts'), where('adminUnreadCount', '>', 0));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      let total = 0;
+      const posts: any[] = [];
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        total += (data.adminUnreadCount || 0);
+        posts.push({ id: doc.id, ...data });
+      });
+      setUnreadCount(total);
+      setUnreadPosts(posts);
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     if (darkMode) {
@@ -199,14 +221,51 @@ function AppLayout() {
               {darkMode ? <Sun size={20} /> : <Moon size={20} />}
             </button>
 
-            <button className="p-2 text-gray-400 dark:text-indigo-400 hover:text-indigo-600 dark:hover:text-white relative transition-colors">
-              <Bell size={20} />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-indigo-950"></span>
-            </button>
-            <div className="h-8 w-px bg-gray-200 hidden sm:block"></div>
-            
+            <div className="relative">
+              <button 
+                onClick={() => setIsNotifOpen(!isNotifOpen)}
+                className="p-2 text-gray-400 dark:text-indigo-400 hover:text-indigo-600 dark:hover:text-white relative transition-colors"
+              >
+                <Bell size={20} />
+                {unreadCount > 0 && (
+                  <span className="absolute top-0 right-0 w-4 h-4 bg-red-500 rounded-full border-2 border-white dark:border-black flex items-center justify-center text-[8px] font-bold text-white shadow-sm translate-x-1 -translate-y-1">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {isNotifOpen && (
+                <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-100 dark:border-white/10 overflow-hidden z-50">
+                  <div className="p-3 border-b border-gray-100 dark:border-white/10 bg-gray-50/50 dark:bg-white/5">
+                    <h3 className="text-xs font-black text-gray-900 dark:text-white uppercase tracking-widest">Notifications</h3>
+                  </div>
+                  <div className="max-h-64 overflow-y-auto">
+                    {unreadPosts.length === 0 ? (
+                      <div className="p-6 text-center text-xs text-gray-500 font-bold">No new messages.</div>
+                    ) : (
+                      unreadPosts.map(post => (
+                        <Link 
+                          key={post.id} 
+                          to="/messaging" 
+                          onClick={() => setIsNotifOpen(false)}
+                          className="block p-3 border-b border-gray-100 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-bold text-gray-900 dark:text-white truncate pr-2">{post.title}</span>
+                            <span className="text-[10px] bg-red-100 text-red-600 px-1.5 rounded-md font-black">{post.adminUnreadCount} New</span>
+                          </div>
+                          <p className="text-[10px] text-gray-500 line-clamp-1">{post.description}</p>
+                        </Link>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="h-8 w-px bg-gray-200 dark:bg-white/10 hidden sm:block"></div>
+
             {/* Logout Button */}
-            <button 
+            <button
               onClick={() => logout()}
               className="flex items-center gap-2 p-2 px-3 rounded-xl bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/20 transition-all"
             >

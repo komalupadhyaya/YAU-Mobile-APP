@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/push",
+      "destination": "https://exp.host/--/api/v2/push/send"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
