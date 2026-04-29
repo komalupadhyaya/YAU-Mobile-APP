@@ -64,11 +64,6 @@ export default function MessageDetailScreen() {
     setSendingReply(true);
     try {
       await sendReply(id, user.id!, `${user.firstName} ${user.lastName}`, 'parent', replyText.trim());
-      if (id.startsWith('mock')) {
-        // Manually trigger a refresh for mock data since there is no real listener
-        const { subscribeToReplies } = await import('../../src/services/messaging');
-        subscribeToReplies(id, (fetched) => setReplies([...fetched]));
-      }
       setReplyText('');
       Keyboard.dismiss();
     } catch (e) {} finally { setSendingReply(false); }

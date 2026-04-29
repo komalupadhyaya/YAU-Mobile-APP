@@ -65,17 +65,7 @@ export default function ScheduleScreen() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const mockUpcoming: Schedule[] = [
-    { id: 'm-u1', team1Name: 'National Harbor', team2Name: 'Eagles', sport: 'Soccer', date: '2026-05-16', time: '06:09 PM', location: 'National Harbor, MD' },
-    { id: 'm-u2', team1Name: 'Tiny Kicks', team2Name: 'Rising Stars', sport: 'Basketball', date: '2026-05-23', time: '10:00 AM', location: '1234588 Yester day' },
-    { id: 'm-u3', team1Name: 'Maryland Warriors', team2Name: 'DC United', sport: 'Soccer', date: '2026-06-02', time: '09:00 AM', location: 'University Field' },
-    { id: 'm-u4', team1Name: 'Hoop Dreams', team2Name: 'Power Forward', sport: 'Basketball', date: '2026-06-15', time: '02:30 PM', location: 'Main Gym' }
-  ];
 
-  const mockPast: Schedule[] = [
-    { id: 'm-p1', team1Name: 'National Harbor', team2Name: 'Eagles', sport: 'Soccer', date: '2026-01-16', time: '12:30 PM', location: '13802 R st NW Washington, DC' },
-    { id: 'm-p2', team1Name: '6th Grade SOCCER', team2Name: 'North Star', sport: 'Soccer', date: '2025-10-17', time: '06:09 AM', location: 'National Harbor, MD' }
-  ];
 
   const isUpcomingDate = (d: string) => {
     try {
@@ -88,10 +78,8 @@ export default function ScheduleScreen() {
   const realUpcoming = schedules.filter(s => isUpcomingDate(s.date));
   const realPast = schedules.filter(s => !isUpcomingDate(s.date));
 
-  // Use mock data if real data for that specific category is empty
-  const displayedItems = activeTab === 'upcoming' 
-    ? (realUpcoming.length > 0 ? realUpcoming : mockUpcoming)
-    : (realPast.length > 0 ? realPast : mockPast);
+  // Use real data
+  const displayedItems = activeTab === 'upcoming' ? realUpcoming : realPast;
 
   const grouped: Record<string, Schedule[]> = {};
   for (const s of displayedItems) {

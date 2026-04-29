@@ -8,6 +8,7 @@ import {
   Image,
   ImageBackground,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
   ScrollView,
@@ -162,7 +163,7 @@ export default function RegisterScreen() {
           lastName: parentLastName.trim(),
           email: email.trim(),
           phone: selectedCountry.dialCode + phoneDigits,
-          students: studentData, 
+          students: studentData,
         } as any);
 
         // Sign in to Firebase Auth so the auth listener in UserContext is satisfied
@@ -173,8 +174,8 @@ export default function RegisterScreen() {
         }
 
         Alert.alert(
-          'Welcome to YAU! 🏆', 
-          'Registration complete!', 
+          'Welcome to YAU! 🏆',
+          'Registration complete!',
           [{ text: 'Get Started', onPress: () => router.replace('/(tabs)/' as any) }]
         );
       } else {
@@ -204,7 +205,7 @@ export default function RegisterScreen() {
   };
 
   const isStep2Valid = () => {
-    return students.every(s => 
+    return students.every(s =>
       s.firstName.trim().length > 0 &&
       s.lastName.trim().length > 0 &&
       s.gradeBand.length > 0 &&
@@ -265,7 +266,7 @@ export default function RegisterScreen() {
 
                 <Text style={styles.inputLabel}>Phone Number</Text>
                 <View style={styles.inputWrapper}>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.phonePrefix}
                     onPress={() => setIsCountryPickerOpen(true)}
                   >
@@ -284,7 +285,7 @@ export default function RegisterScreen() {
                     <MaterialIcons name={showPassword ? 'visibility' : 'visibility-off'} size={20} color="#9CA3AF" />
                   </TouchableOpacity>
                 </View>
-                 <Text style={[styles.hintText, password.length > 0 && password.length < 8 && { color: '#EF4444', fontWeight: '700' }]}>
+                <Text style={[styles.hintText, password.length > 0 && password.length < 8 && { color: '#EF4444', fontWeight: '700' }]}>
                   Must be at least 8 characters
                 </Text>
 
@@ -299,8 +300,8 @@ export default function RegisterScreen() {
                   <Text style={styles.errorText}>Passwords do not match</Text>
                 )}
 
-                <TouchableOpacity 
-                  style={[styles.primaryBtn, !isStep1Valid() && styles.btnDisabled]} 
+                <TouchableOpacity
+                  style={[styles.primaryBtn, !isStep1Valid() && styles.btnDisabled]}
                   onPress={() => setStep(2)}
                   disabled={!isStep1Valid()}
                 >
@@ -337,8 +338,8 @@ export default function RegisterScreen() {
                     <Text style={styles.inputLabel}>Interested Sports (Select multiple)</Text>
                     <View style={styles.chipsRow}>
                       {SPORTS.map(sport => (
-                        <TouchableOpacity 
-                          key={sport} 
+                        <TouchableOpacity
+                          key={sport}
                           style={[styles.chip, student.sports.includes(sport) && styles.chipSel]}
                           onPress={() => toggleSport(idx, sport)}
                         >
@@ -365,7 +366,7 @@ export default function RegisterScreen() {
                     {smsConsent && <MaterialIcons name="check" size={14} color="#FFF" />}
                   </TouchableOpacity>
                   <Text style={styles.termsText}>
-                    I agree to receive text messages from YAU. Message and data rates may apply. Reply STOP to opt out or HELP for help. View our <Text onPress={() => setIsTermsModalOpen(true)} style={styles.linkText}>Privacy Policy</Text> and <Text onPress={() => setIsTermsModalOpen(true)} style={styles.linkText}>Terms of Use</Text>.
+                    I agree to receive text messages from YAU. Message and data rates may apply. Reply STOP to opt out or HELP for help. View our <Text onPress={() => Linking.openURL('https://youthathleteuniversity.org/privacypolicy')} style={styles.linkText}>Privacy Policy</Text> and <Text onPress={() => Linking.openURL('https://youthathleteuniversity.org/terms')} style={styles.linkText}>Terms of Use</Text>.
                   </Text>
                 </View>
 
@@ -377,7 +378,7 @@ export default function RegisterScreen() {
                     {termsAccepted && <MaterialIcons name="check" size={14} color="#FFF" />}
                   </TouchableOpacity>
                   <Text style={styles.termsText}>
-                    I agree to the <Text onPress={() => setIsTermsModalOpen(true)} style={styles.linkText}>Terms of Service</Text> and <Text onPress={() => setIsTermsModalOpen(true)} style={styles.linkText}>Privacy Policy</Text>
+                    I agree to the <Text onPress={() => Linking.openURL('https://youthathleteuniversity.org/terms')} style={styles.linkText}>Terms of Service</Text> and <Text onPress={() => Linking.openURL('https://youthathleteuniversity.org/privacyterms')} style={styles.linkText}>Privacy Policy</Text>
                   </Text>
                 </View>
 
@@ -438,8 +439,8 @@ export default function RegisterScreen() {
             <ScrollView style={{ marginTop: 10 }}>
               <Text style={styles.termsContentText}>{TERMS_TEXT}</Text>
             </ScrollView>
-            <TouchableOpacity 
-              style={[styles.primaryBtn, { marginTop: 20 }]} 
+            <TouchableOpacity
+              style={[styles.primaryBtn, { marginTop: 20 }]}
               onPress={() => { setTermsAccepted(true); setIsTermsModalOpen(false); }}
             >
               <Text style={styles.primaryBtnText}>Accept & Close</Text>

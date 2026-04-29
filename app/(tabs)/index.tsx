@@ -21,7 +21,7 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       if (!user) return;
-      const unsub = subscribeToMessages([], '', '', '', (fetched: AdminPost[]) => {
+      const unsub = subscribeToMessages(user.students || [], (fetched: AdminPost[]) => {
         const count = getTotalUnreadCount(fetched, user.id!);
         setTotalUnread(count);
       });
@@ -81,28 +81,7 @@ export default function HomeScreen() {
     }
   };
 
-  const mockSchedules: Schedule[] = [
-    {
-      id: 'mock1',
-      team1Name: 'Tiny Kicks',
-      team2Name: 'Rising Stars',
-      sport: 'Junior Fun League',
-      date: 'SATURDAY, 19 AUGUST 2024',
-      time: '07:30 PM',
-      location: 'Green Park Field'
-    },
-    {
-      id: 'mock2',
-      team1Name: 'Happy Feet',
-      team2Name: 'Luton Town',
-      sport: 'Junior Fun League',
-      date: 'SATURDAY, 19 AUGUST 2024',
-      time: '08:00 PM',
-      location: 'Green Park Field'
-    }
-  ];
-
-  const displayedSchedules = schedules.length > 0 ? schedules : mockSchedules;
+  const displayedSchedules = schedules;
 
   return (
     <View style={styles.container}>

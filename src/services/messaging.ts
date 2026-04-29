@@ -36,6 +36,7 @@ export interface AdminPost {
   replyCount?: number;
   unreadCount?: number;
   adminUnreadCount?: number;
+  lastActivity?: any;
 }
 
 export interface MessageReply {
@@ -48,102 +49,35 @@ export interface MessageReply {
   timestamp: any;
 }
 
-export const MOCK_ADMIN_POSTS: AdminPost[] = [
-  {
-    id: 'mock1',
-    title: 'Summer Season Update',
-    description: 'Registration for the summer basketball season is now open. Sign up early for discounts!',
-    timestamp: { toDate: () => new Date(Date.now() - 3600000) } as any,
-    role: 'admin',
-    readBy: [],
-    unreadCount: 3
-  },
-  {
-    id: 'mock2',
-    title: 'Game Time Changed',
-    description: 'The game scheduled for Saturday has been moved to 2 PM.',
-    timestamp: { toDate: () => new Date(Date.now() - 86400000) } as any,
-    role: 'coach',
-    readBy: [],
-    unreadCount: 0
-  },
-  {
-    id: 'mock3',
-    title: 'Uniform Distribution',
-    description: 'Please pick up your uniforms at the main gym today.',
-    timestamp: { toDate: () => new Date(Date.now() - 172800000) } as any,
-    role: 'admin',
-    readBy: [],
-    unreadCount: 1
-  },
-  {
-    id: 'mock4',
-    title: 'Practice Canceled',
-    description: 'Due to rain, today\'s field practice is canceled. See you on Monday!',
-    timestamp: { toDate: () => new Date(Date.now() - 259200000) } as any,
-    role: 'coach',
-    readBy: [],
-    unreadCount: 5
-  }
-];
-
-// In-memory storage for mock replies (demo persistence)
-const mockRepliesStore: Record<string, MessageReply[]> = {
-  'mock1': [
-    { id: 'm1', postId: 'mock1', content: 'Thank you for the update! We will be there.', userName: 'Test Parent', userId: 'other', timestamp: Date.now() - 100000, userRole: 'parent' },
-    { id: 'm2', postId: 'mock1', content: 'Great, see you then!', userName: 'Coach Smith', userId: 'coach1', timestamp: Date.now() - 50000, userRole: 'coach' }
-  ],
-  'mock2': [
-    { id: 'm1', postId: 'mock2', content: 'Can we move it to 3 PM?', userName: 'Test Parent', userId: 'other', timestamp: Date.now() - 100000, userRole: 'parent' }
-  ],
-  'mock3': [],
-  'mock4': []
-};
-
-const mockReadState: Record<string, string[]> = {}; // { postId: [userIds] }
+// State management for read/unread is handled in Firestore.
 
 export const sendReply = async (postId: string, userId: string, userName: string, userRole: 'parent' | 'coach' | 'admin', content: string) => {
   try {
     const { collection, addDoc, serverTimestamp, increment, updateDoc, doc } = await import('firebase/firestore');
     
-    // 1. Add reply to sub-collection
-    if (!postId.startsWith('mock')) {
-      const repliesRef = collection(db, "admin_posts", postId, "replies");
-      await addDoc(repliesRef, {
-        userId,
-        userName,
-        userRole,
-        content,
-        timestamp: serverTimestamp()
-      });
+    // Add reply to sub-collection
+    const repliesRef = collection(db, "admin_posts", postId, "replies");
+    await addDoc(repliesRef, {
+      userId,
+      userName,
+      userRole,
+      content,
+      timestamp: serverTimestamp()
+    });
 
-      // 2. Manage unread counters
-      const postRef = doc(db, "admin_posts", postId);
-      if (userRole !== 'admin') {
-        // User replied: increase admin's unread counter
-        await updateDoc(postRef, {
-          adminUnreadCount: increment(1)
-        });
-      } else {
-        // Admin replied: increase user's unread counter and clear admin's counter
-        await updateDoc(postRef, {
-          unreadCount: increment(1),
-          adminUnreadCount: 0
-        });
-      }
-    } else {
-      // Persist mock reply in memory for the session
-      if (!mockRepliesStore[postId]) mockRepliesStore[postId] = [];
-      mockRepliesStore[postId].push({
-        id: Date.now().toString(),
-        postId,
-        userId,
-        userName,
-        userRole,
-        content,
-        timestamp: Date.now()
+    // 2. Manage unread counters
+    const postRef = doc(db, "admin_posts", postId);
+    if (userRole !== 'admin') {
+      // User replied: increase admin's unread counter
+      await updateDoc(postRef, {
+        adminUnreadCount: increment(1)
       });
-      console.log("[Mock Message] Simulation of sending reply to:", postId);
+    } else {
+      // Admin replied: increase user's unread counter and clear admin's counter
+      await updateDoc(postRef, {
+        unreadCount: increment(1),
+        adminUnreadCount: 0
+      });
     }
   } catch (error) {
     console.error("Error sending reply:", error);
@@ -152,10 +86,7 @@ export const sendReply = async (postId: string, userId: string, userName: string
 };
 
 export const subscribeToReplies = (postId: string, callback: (replies: MessageReply[]) => void) => {
-  if (postId.startsWith('mock')) {
-    callback(mockRepliesStore[postId] || []);
-    return () => {};
-  }
+
   const { collection, query, orderBy, onSnapshot } = require('firebase/firestore');
   const repliesRef = collection(db, "admin_posts", postId, "replies");
   const q = query(repliesRef, orderBy("timestamp", "asc"));
@@ -171,13 +102,7 @@ export const subscribeToReplies = (postId: string, callback: (replies: MessageRe
 
 export const markMessageAsRead = async (messageId: string, userId: string) => {
   if (!messageId || !userId) return;
-  if (messageId.startsWith('mock')) {
-    if (!mockReadState[messageId]) mockReadState[messageId] = [];
-    if (!mockReadState[messageId].includes(userId)) {
-      mockReadState[messageId].push(userId);
-    }
-    return;
-  }
+
   try {
     const { arrayUnion, updateDoc, doc } = await import('firebase/firestore');
     const docRef = doc(db, "admin_posts", messageId);
@@ -191,17 +116,14 @@ export const markMessageAsRead = async (messageId: string, userId: string) => {
 
 export const isMessageRead = (message: AdminPost, userId: string) => {
   if (!userId) return false;
-  if (message.id.startsWith('mock')) {
-    return mockReadState[message.id]?.includes(userId) || message.readBy?.includes(userId);
-  }
+
   return message.readBy?.includes(userId);
 };
 
 export const getTotalUnreadCount = (realMessages: AdminPost[], userId: string) => {
   if (!userId) return 0;
   
-  // Use real messages if they exist, otherwise use mocks
-  const pool = realMessages.length > 0 ? realMessages : MOCK_ADMIN_POSTS;
+  const pool = realMessages;
   
   return pool.reduce((acc, msg) => {
     if (!isMessageRead(msg, userId)) {
@@ -211,66 +133,101 @@ export const getTotalUnreadCount = (realMessages: AdminPost[], userId: string) =
   }, 0);
 };
 
-export const subscribeToMessages = (userGroupIds: string[], userSport?: string, userLocation?: string, userGrade?: string, callback?: (messages: AdminPost[]) => void) => {
-  const messagesRef = collection(db, "admin_posts");
-  const q = query(
-    messagesRef,
-    orderBy("createdAt", "desc")
-  );
-
-  return onSnapshot(q, (snapshot) => {
-    const msgs: AdminPost[] = [];
-    
-    const normalizedUserSport = userSport ? normalize(userSport) : '';
-    const normalizedUserLocation = userLocation ? normalize(userLocation) : '';
-    const normalizedUserGrade = userGrade ? normalize(userGrade) : '';
-    
-    snapshot.forEach((doc) => {
-      const data = doc.data();
-      const id = doc.id;
-      
-      // 1. Check Multi-Group Targeting (New)
-      if (data.targetGroups && Array.isArray(data.targetGroups)) {
-        const matches = data.targetGroups.some((g: any) => {
-          const mSchool = g.school === 'all' || !!(normalizedUserLocation && normalize(normalizedUserLocation).includes(normalize(g.school)));
-          const mGrade = g.gradeBand === 'all' || !!(normalizedUserGrade && normalize(normalizedUserGrade) === normalize(g.gradeBand));
-          const mSport = g.sport === 'all' || !!(normalizedUserSport && normalize(normalizedUserSport) === normalize(g.sport));
-          return mSchool && mGrade && mSport;
-        });
-        if (matches) {
-          msgs.push({ id, ...data } as AdminPost);
-        }
-        return;
-      }
-
-      // 2. Check Legacy Target Fields (Fallback)
-      const targetSport = data.targetSport ?? 'all';
-      const targetLocation = data.targetLocation ?? 'all';
-      const targetAgeGroup = data.targetAgeGroup ?? 'all';
-
-      if (targetSport !== 'all' || targetLocation !== 'all' || targetAgeGroup !== 'all') {
-        let matches = true;
-        if (targetSport && targetSport !== "all") {
-          matches = matches && (normalizedUserSport === normalize(targetSport));
-        }
-        if (targetLocation && targetLocation !== "all") {
-          matches = matches && !!(normalizedUserLocation && normalize(normalizedUserLocation).includes(normalize(targetLocation)));
-        }
-        if (targetAgeGroup && targetAgeGroup !== "all") {
-          matches = matches && !!(normalizedUserGrade && normalize(normalizedUserGrade) === normalize(targetAgeGroup));
-        }
-        if (matches) {
-          msgs.push({ id, ...data } as AdminPost);
-        }
-        return;
-      }
-      
-      // 3. Global Message
-      msgs.push({ id, ...data } as AdminPost);
+export const clearAdminUnreadCount = async (messageId: string) => {
+  if (!messageId) return;
+  try {
+    const { updateDoc, doc } = await import('firebase/firestore');
+    const docRef = doc(db, "admin_posts", messageId);
+    await updateDoc(docRef, {
+      adminUnreadCount: 0
     });
-    
-    if (callback) callback(msgs);
-  });
+  } catch (error) {
+    console.error("Error clearing admin unread count:", error);
+  }
+};
+
+export const subscribeToMessages = (userStudents: any[] = [], callback?: (messages: AdminPost[]) => void) => {
+  const messagesRef = collection(db, "admin_posts");
+  // Fetch all relevant messages and sort locally to avoid missing documents
+  // that don't have the lastActivity field yet.
+  const q = query(messagesRef);
+
+    return onSnapshot(q, (snapshot) => {
+      const msgs: AdminPost[] = [];
+      
+      const normalizedStudents = userStudents.map(s => ({
+        sport: normalize(s.sport),
+        location: normalize(s.school_name),
+        grade: normalize(s.grade_band)
+      }));
+      
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        const id = doc.id;
+        
+        let isMatch = false;
+
+        // 1. Check Multi-Group Targeting
+        if (data.targetGroups && Array.isArray(data.targetGroups)) {
+          isMatch = data.targetGroups.some((g: any) => {
+            const targetSchool = normalize(g.school);
+            const targetGrade = normalize(g.gradeBand);
+            const targetSport = normalize(g.sport);
+
+            return normalizedStudents.some(s => {
+              const mSchool = targetSchool === 'all' || s.location.includes(targetSchool);
+              const mGrade = targetGrade === 'all' || s.grade === targetGrade;
+              const mSport = targetSport === 'all' || s.sport === targetSport;
+              return mSchool && mGrade && mSport;
+            }) || (targetSchool === 'all' && targetGrade === 'all' && targetSport === 'all');
+          });
+        } 
+        // 2. Check Legacy Target Fields
+        else {
+          const targetSport = data.targetSport ?? 'all';
+          const targetLocation = data.targetLocation ?? 'all';
+          const targetAgeGroup = data.targetAgeGroup ?? 'all';
+
+          if (targetSport === 'all' && targetLocation === 'all' && targetAgeGroup === 'all') {
+            isMatch = true;
+          } else {
+            const tSport = normalize(targetSport);
+            const tLocation = normalize(targetLocation);
+            const tGrade = normalize(targetAgeGroup);
+
+            isMatch = normalizedStudents.some(s => {
+              let m = true;
+              if (tSport !== "all") m = m && (s.sport === tSport);
+              if (tLocation !== "all") m = m && (s.location.includes(tLocation));
+              if (tGrade !== "all") m = m && (s.grade === tGrade);
+              return m;
+            });
+          }
+        }
+        
+        if (isMatch) {
+          msgs.push({ id, ...data } as AdminPost);
+        }
+      });
+      
+      // Secondary local sort to ensure newest is ALWAYS first, 
+      // even if documents are missing certain timestamp fields.
+      const getMillis = (obj: any) => {
+        if (!obj) return 0;
+        if (obj.toMillis) return obj.toMillis();
+        if (obj.toDate) return obj.toDate().getTime();
+        if (obj.seconds) return obj.seconds * 1000;
+        return new Date(obj).getTime() || 0;
+      };
+
+      const sorted = msgs.sort((a, b) => {
+        const timeA = Math.max(getMillis(a.lastActivity), getMillis(a.createdAt), getMillis(a.timestamp));
+        const timeB = Math.max(getMillis(b.lastActivity), getMillis(b.createdAt), getMillis(b.timestamp));
+        return timeB - timeA;
+      });
+
+      if (callback) callback(sorted);
+    });
 };
 
 export const getMessageById = async (messageId: string): Promise<AdminPost | null> => {

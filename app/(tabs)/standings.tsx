@@ -28,19 +28,7 @@ const GRADE_BANDS = [
   'High School',
 ];
 
-const MOCK_STANDINGS: Standing[] = [
-  // Soccer
-  { id: 's1', teamName: 'Rising Stars', gradeBand: '1st - 2nd', sport: 'Soccer', wins: 6, draws: 0, losses: 1, points: 18 },
-  { id: 's2', teamName: 'Tiny Kickers', gradeBand: '1st - 2nd', sport: 'Soccer', wins: 5, draws: 0, losses: 2, points: 15 },
-  { id: 's3', teamName: 'Bright Future', gradeBand: '1st - 2nd', sport: 'Soccer', wins: 4, draws: 0, losses: 3, points: 12 },
-  { id: 's4', teamName: 'Happy Feet', gradeBand: '1st - 2nd', sport: 'Soccer', wins: 2, draws: 0, losses: 5, points: 9 },
-  // Basketball
-  { id: 'b1', teamName: 'Hoop Dreams', gradeBand: '1st - 2nd', sport: 'Basketball', wins: 8, draws: 0, losses: 0, points: 24 },
-  { id: 'b2', teamName: 'Dunk Masters', gradeBand: '1st - 2nd', sport: 'Basketball', wins: 5, draws: 1, losses: 2, points: 16 },
-  // Flag Football
-  { id: 'f1', teamName: 'Gridiron Kids', gradeBand: '1st - 2nd', sport: 'Flag Football', wins: 7, draws: 0, losses: 1, points: 21 },
-  { id: 'f2', teamName: 'Flash Runners', gradeBand: '1st - 2nd', sport: 'Flag Football', wins: 3, draws: 0, losses: 5, points: 9 },
-];
+
 
 export default function StandingsScreen() {
   const insets = useSafeAreaInsets();
@@ -69,19 +57,10 @@ export default function StandingsScreen() {
   };
 
   // Filter real data
-  const realFiltered = standings.filter(s => 
+  const filteredData = standings.filter(s => 
     s.sport === selectedSport && 
     (s.gradeBand.includes(selectedBand.split(' ')[0]) || selectedBand.includes(s.gradeBand))
   );
-
-  // Filter mock data
-  const mockFiltered = MOCK_STANDINGS.filter(s => 
-    s.sport === selectedSport && 
-    (s.gradeBand.includes(selectedBand.split(' ')[0]) || selectedBand.includes(s.gradeBand))
-  );
-
-  // Use mock data only if real filtered results are empty
-  const filteredData = realFiltered.length > 0 ? realFiltered : mockFiltered;
 
   const renderHeader = () => (
     <View style={styles.tableHeader}>

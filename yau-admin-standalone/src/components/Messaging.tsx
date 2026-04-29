@@ -160,7 +160,9 @@ const Messaging: React.FC = () => {
         targetGroups,
         createdAt: serverTimestamp(),
         type: 'admin',
-        replyCount: 0
+        replyCount: 0,
+        unreadCount: 1,
+        lastActivity: serverTimestamp()
       });
       
       // Fetch tokens and send push notification
@@ -193,7 +195,8 @@ const Messaging: React.FC = () => {
       const postRef = doc(db, "admin_posts", selectedPost.id);
       await updateDoc(postRef, {
         unreadCount: increment(1),
-        adminUnreadCount: 0
+        adminUnreadCount: 0,
+        lastActivity: serverTimestamp()
       });
       
       // 3. Send Push Notification for reply

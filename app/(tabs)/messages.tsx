@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUser } from '../../src/context/UserContext';
-import { AdminPost, subscribeToMessages, markMessageAsRead, isMessageRead, MOCK_ADMIN_POSTS } from '../../src/services/messaging';
+import { AdminPost, subscribeToMessages, markMessageAsRead, isMessageRead } from '../../src/services/messaging';
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback } from 'react';
 
@@ -32,7 +32,7 @@ export default function MessagesScreen() {
     useCallback(() => {
       setRefreshKey(prev => prev + 1);
       if (!user) { setLoading(false); return; }
-      const unsub = subscribeToMessages([], '', '', '', (fetched: AdminPost[]) => {
+      const unsub = subscribeToMessages(user.students || [], (fetched: AdminPost[]) => {
         setMessages(fetched);
         setLoading(false);
       });
@@ -49,20 +49,23 @@ export default function MessagesScreen() {
 
   const formatTime = (ts: any) => {
     if (!ts) return '';
-    const date = ts.toDate ? ts.toDate() : new Date(ts);
+    // Support both Firestore Timestamp and JS Date
+    const date = ts.toDate ? ts.toDate() : (ts.seconds ? new Date(ts.seconds * 1000) : new Date(ts));
+    if (isNaN(date.getTime())) return '';
+    
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     const oneDay = 24 * 60 * 60 * 1000;
 
     if (diff < oneDay) {
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
     } else if (diff < 7 * oneDay) {
       return date.toLocaleDateString([], { weekday: 'short' });
     }
     return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
   };
 
-  const displayedMessages = (messages.length > 0 ? messages : MOCK_ADMIN_POSTS).filter(m => {
+  const displayedMessages = messages.filter(m => {
     if (activeTab === 'all') return true;
     if (activeTab === 'admin') return m.role === 'admin';
     if (activeTab === 'coaches') return m.role === 'coach';
@@ -116,13 +119,17 @@ export default function MessagesScreen() {
             const isCoach = item.role === 'coach';
 
             return (
-              <TouchableOpacity style={styles.messageItem} onPress={() => handleOpenMessage(item)}>
+              <TouchableOpacity 
+                style={[styles.messageItem, !isRead && styles.unreadMessageItem]} 
+                onPress={() => handleOpenMessage(item)}
+              >
                 <View style={styles.avatarContainer}>
                   <View style={styles.avatarBg}>
                     <Image source={require('../../assets/images/logo1.png')} style={styles.avatarLogo} resizeMode="contain" />
                   </View>
+                  {!isRead && <View style={styles.unreadDot} />}
                 </View>
-
+ 
                 <View style={styles.messageContent}>
                   <View style={styles.messageHeader}>
                     <View style={[styles.roleTag, isCoach ? styles.coachTag : styles.adminTag]}>
@@ -130,11 +137,13 @@ export default function MessagesScreen() {
                         {item.role?.toUpperCase() || 'ADMIN'}
                       </Text>
                     </View>
-                    <Text style={styles.messageTime}>{formatTime(item.timestamp)}</Text>
+                    <Text style={[styles.messageTime, !isRead && styles.unreadTextStrong]}>
+                      {formatTime(item.lastActivity || item.createdAt || item.timestamp)}
+                    </Text>
                   </View>
-
+ 
                   <View style={styles.titleRow}>
-                    <Text style={styles.messageTitle} numberOfLines={1}>{item.title}</Text>
+                    <Text style={[styles.messageTitle, !isRead && styles.unreadTextStrong]} numberOfLines={1}>{item.title}</Text>
                     {!isRead && (
                       <View style={styles.unreadBadge}>
                         <Text style={styles.unreadCount}>
@@ -143,8 +152,8 @@ export default function MessagesScreen() {
                       </View>
                     )}
                   </View>
-
-                  <Text style={styles.messagePreview} numberOfLines={1}>
+ 
+                  <Text style={[styles.messagePreview, !isRead && styles.unreadPreview]} numberOfLines={1}>
                     {item.description}
                   </Text>
                 </View>
@@ -218,6 +227,30 @@ const styles = StyleSheet.create({
   },
   unreadCount: { color: '#FFF', fontSize: 10, fontWeight: '900' },
   messagePreview: { fontSize: 13, color: '#64748B', lineHeight: 18 },
+  unreadMessageItem: {
+    backgroundColor: '#F0F9FF',
+    borderLeftWidth: 4,
+    borderLeftColor: '#0047AB',
+  },
+  unreadDot: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#0047AB',
+    borderWidth: 2,
+    borderColor: '#FFF',
+  },
+  unreadTextStrong: {
+    fontWeight: '900',
+    color: '#0047AB',
+  },
+  unreadPreview: {
+    color: '#1E293B',
+    fontWeight: '700',
+  },
   loading: { flex: 1, justifyContent: 'center' },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: 100 },
   emptyText: { color: '#94A3B8', fontSize: 15, fontWeight: '700', marginTop: 15 },
