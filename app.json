@@ -7,7 +7,6 @@
     "icon": "./assets/images/icon.png",
     "scheme": "yauapp",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "extra": {
       "eas": {
         "projectId": "dd35e184-c545-49be-853d-cf7223e7be47",
@@ -31,7 +30,6 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.example.yau_app",
       "googleServicesFile": "./google-services.json"
