@@ -14,7 +14,7 @@ export interface PushNotificationPayload {
 
 export const sendPushNotification = async (payload: PushNotificationPayload) => {
   try {
-    const response = await fetch('https://exp.host/--/api/v2/push/send', {
+    const response = await fetch('/api/push', {
       method: 'POST',
       headers: {
         Accept: 'application/json',
