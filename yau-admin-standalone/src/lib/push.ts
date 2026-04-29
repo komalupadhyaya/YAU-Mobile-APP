@@ -25,7 +25,7 @@ export const sendPushNotification = async (payload: PushNotificationPayload) => 
     });
 
     const result = await response.json();
-    if (__DEV__) console.log('[Push Service] Result:', result);
+    console.log('[Push Service] Result:', result);
     return result;
   } catch (error) {
     console.error('[Push Service] Error sending notification:', error);
