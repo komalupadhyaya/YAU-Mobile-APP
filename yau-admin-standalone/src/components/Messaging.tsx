@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { collection, addDoc, serverTimestamp, onSnapshot, query, orderBy, limit, doc, updateDoc, increment } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, onSnapshot, query, orderBy, limit, doc, updateDoc, increment, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { broadcastPushNotification } from '../lib/push';
 import { Send, Target, Plus, Trash2, History, ChevronDown, ChevronUp, MessageSquare, X } from 'lucide-react';
 import { Card } from './ui/Card';
 import { Input } from './ui/Input';
@@ -107,6 +108,44 @@ const Messaging: React.FC = () => {
     setTargetGroups([...targetGroups, { school: currentSchool, gradeBand: currentGradeBand, sport: currentSport }]);
   };
 
+  const fetchTokensForTargetGroups = async (groups: TargetGroup[]): Promise<string[]> => {
+    try {
+      const membersSnap = await getDocs(collection(db, 'members'));
+      const tokens: string[] = [];
+      
+      membersSnap.forEach(doc => {
+        const data = doc.data();
+        if (!data.expoPushTokens || !Array.isArray(data.expoPushTokens) || data.expoPushTokens.length === 0) return;
+        
+        // Normalize helper
+        const normalize = (str: any) => String(str || '').toLowerCase().trim().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, "_");
+        
+        let isTargeted = false;
+        
+        // Check if member matches any target group
+        for (const g of groups) {
+          const matchesSchool = g.school === 'all' || (data.students || []).some((s: any) => normalize(s.school_name) === normalize(g.school));
+          const matchesGrade = g.gradeBand === 'all' || (data.students || []).some((s: any) => normalize(s.grade_band) === normalize(g.gradeBand) || normalize(s.ageGroup) === normalize(g.gradeBand));
+          const matchesSport = g.sport === 'all' || normalize(data.sport) === normalize(g.sport) || (data.students || []).some((s: any) => normalize(s.sport) === normalize(g.sport));
+          
+          if (matchesSchool && matchesGrade && matchesSport) {
+            isTargeted = true;
+            break;
+          }
+        }
+        
+        if (isTargeted) {
+          tokens.push(...data.expoPushTokens);
+        }
+      });
+      
+      return [...new Set(tokens)]; // Unique tokens
+    } catch (error) {
+      console.error('Error fetching tokens:', error);
+      return [];
+    }
+  };
+
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !description.trim() || targetGroups.length === 0) {
@@ -123,6 +162,13 @@ const Messaging: React.FC = () => {
         type: 'admin',
         replyCount: 0
       });
+      
+      // Fetch tokens and send push notification
+      const tokens = await fetchTokensForTargetGroups(targetGroups);
+      if (tokens.length > 0) {
+        await broadcastPushNotification(tokens, title.trim(), description.trim(), { screen: 'messages' });
+      }
+      
       toast.success('Broadcast sent!');
       setTitle(''); setDescription(''); setTargetGroups([]);
     } catch (error) {
@@ -149,6 +195,20 @@ const Messaging: React.FC = () => {
         unreadCount: increment(1),
         adminUnreadCount: 0
       });
+      
+      // 3. Send Push Notification for reply
+      if (selectedPost.targetGroups) {
+         const tokens = await fetchTokensForTargetGroups(selectedPost.targetGroups);
+         if (tokens.length > 0) {
+           await broadcastPushNotification(
+             tokens, 
+             `New Reply: ${selectedPost.title}`, 
+             replyText.trim(), 
+             { screen: 'messages', messageId: selectedPost.id }
+           );
+         }
+      }
+
       setReplyText('');
       toast.success('Reply sent.');
     } catch (error) {
