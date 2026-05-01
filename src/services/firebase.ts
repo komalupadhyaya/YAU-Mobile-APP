@@ -36,10 +36,17 @@ try {
   }
 }
 
-// Firebase web SDK handles persistence automatically in React Native
 export const auth = getAuth(app);
 
-export const db = getFirestore(app);
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
+
+// Firebase web SDK handles persistence automatically in React Native, 
+// but we explicitly enable persistent cache for better control.
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager()
+  })
+});
 
 export const storage = getStorage(app);
 

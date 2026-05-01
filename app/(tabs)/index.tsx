@@ -11,31 +11,17 @@ import { useFocusEffect } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 
+import { useScheduleStore } from '../../src/store/useScheduleStore';
+import { useMessageStore } from '../../src/store/useMessageStore';
+
 export default function HomeScreen() {
   const { user } = useUser();
   const insets = useSafeAreaInsets();
-  const [schedules, setSchedules] = useState<Schedule[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [totalUnread, setTotalUnread] = useState(0);
-
-  useFocusEffect(
-    useCallback(() => {
-      if (!user) return;
-      const unsub = subscribeToMessages(user.students || [], (fetched: AdminPost[]) => {
-        const count = getTotalUnreadCount(fetched, user.id!);
-        setTotalUnread(count);
-      });
-      return () => unsub();
-    }, [user])
-  );
-
-  useEffect(() => {
-    const unsub = subscribeToSchedules((data) => {
-      setSchedules(data);
-      setLoading(false);
-    });
-    return () => unsub();
-  }, []);
+  
+  // Use centralized state
+  const schedules = useScheduleStore(state => state.schedules);
+  const loading = useScheduleStore(state => state.loading);
+  const totalUnread = useMessageStore(state => state.totalUnread);
 
   const fullName = user ? `${user.firstName} ${user.lastName}` : 'Guest User';
 
@@ -81,7 +67,13 @@ export default function HomeScreen() {
     }
   };
 
-  const displayedSchedules = schedules;
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+  const upcomingSchedules = schedules
+    .filter(s => s.date > todayStr)
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(0, 3);
 
   return (
     <View style={styles.container}>
@@ -133,8 +125,8 @@ export default function HomeScreen() {
 
         {loading ? (
           <ActivityIndicator color="#0047AB" size="large" style={{ marginTop: 20 }} />
-        ) : (
-          displayedSchedules.map((item) => (
+        ) : upcomingSchedules.length > 0 ? (
+          upcomingSchedules.map((item) => (
             <View key={item.id} style={styles.matchCard}>
               <View style={styles.cardHeader}>
                 <Text style={styles.cardHeaderDate}>{formatDate(item.date)}</Text>
@@ -167,6 +159,11 @@ export default function HomeScreen() {
               </View>
             </View>
           ))
+        ) : (
+          <View style={styles.emptyContainer}>
+            <MaterialIcons name="event-busy" size={50} color="#CBD5E1" />
+            <Text style={styles.emptyText}>No upcoming matches found</Text>
+          </View>
         )}
       </ScrollView>
     </View>
@@ -239,4 +236,21 @@ const styles = StyleSheet.create({
   scoreContainer: { alignItems: 'center', flex: 1 },
   statusLabel: { fontSize: 10, fontWeight: '800', color: '#64748B', marginBottom: 5, letterSpacing: 0.5 },
   timeText: { fontSize: 16, fontWeight: '900', color: '#0F172A' },
+  emptyContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    marginTop: 10
+  },
+  emptyText: {
+    color: '#64748B',
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: 12,
+    textAlign: 'center'
+  },
 });

@@ -161,7 +161,7 @@ const Dashboard: React.FC = () => {
     getDocs(query(collection(db, 'schedules'), orderBy('date', 'asc'), limit(50))).then(snap => {
       const upcoming = snap.docs
         .map(d => ({ id: d.id, ...d.data() } as any))
-        .filter(d => d.date >= todayStr)
+        .filter(d => d.date > todayStr)
         .slice(0, 5);
       setUpcomingGamesCount(snap.docs.filter(d => { const dt = d.data().date; return dt >= todayStr && dt <= nextWeek; }).length);
       setUpcomingGames(upcoming);

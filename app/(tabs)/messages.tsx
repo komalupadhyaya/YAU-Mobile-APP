@@ -17,39 +17,88 @@ import { AdminPost, subscribeToMessages, markMessageAsRead, isMessageRead } from
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback } from 'react';
 
+import { useMessageStore, shouldShowBadge } from '../../src/store/useMessageStore';
+
 type MessageTab = 'all' | 'admin' | 'coaches';
+
+// 1. Memoized List Item for Performance
+const MessageItem = React.memo(({ 
+  item, 
+  onPress, 
+  formatTime 
+}: { 
+  item: any; 
+  onPress: (msg: any) => void; 
+  formatTime: (ts: any) => string;
+}) => {
+  const isCoach = item.role === 'coach';
+  const showBadge = shouldShowBadge(item.unreadCount);
+
+  return (
+    <TouchableOpacity 
+      style={[styles.messageItem, showBadge && styles.unreadMessageItem]} 
+      onPress={() => onPress(item)}
+    >
+      <View style={styles.avatarContainer}>
+        <View style={styles.avatarBg}>
+          <Image source={require('../../assets/images/logo1.png')} style={styles.avatarLogo} resizeMode="contain" />
+        </View>
+        {showBadge && <View style={styles.unreadDot} />}
+      </View>
+
+      <View style={styles.messageContent}>
+        <View style={styles.messageHeader}>
+          <View style={[styles.roleTag, isCoach ? styles.coachTag : styles.adminTag]}>
+            <Text style={[styles.roleTagText, isCoach ? styles.coachTagText : styles.adminTagText]}>
+              {item.role?.toUpperCase() || 'ADMIN'}
+            </Text>
+          </View>
+          <Text style={[styles.messageTime, showBadge && styles.unreadTextStrong]}>
+            {formatTime(item.lastActivity || item.createdAt || item.timestamp)}
+          </Text>
+        </View>
+
+        <View style={styles.titleRow}>
+          <Text style={[styles.messageTitle, showBadge && styles.unreadTextStrong]} numberOfLines={1}>{item.title}</Text>
+          {showBadge && (
+            <View style={styles.unreadBadge}>
+              <Text style={styles.unreadCount}>
+                {item.unreadCount}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        <Text style={[styles.messagePreview, showBadge && styles.unreadPreview]} numberOfLines={1}>
+          {item.senderName ? `${item.senderName}: ` : ''}{item.lastMessage || item.description || item.message || 'No preview available'}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+});
 
 export default function MessagesScreen() {
   const router = useRouter();
   const { user } = useUser();
   const insets = useSafeAreaInsets();
-  const [messages, setMessages] = useState<AdminPost[]>([]);
-  const [loading, setLoading] = useState(true);
+  
+  const messages = useMessageStore(state => state.groups);
+  const loading = useMessageStore(state => state.loading);
+  const markAsRead = useMessageStore(state => state.markAsRead);
   const [activeTab, setActiveTab] = useState<MessageTab>('all');
-  const [refreshKey, setRefreshKey] = useState(0);
 
-  useFocusEffect(
-    useCallback(() => {
-      setRefreshKey(prev => prev + 1);
-      if (!user) { setLoading(false); return; }
-      const unsub = subscribeToMessages(user.students || [], (fetched: AdminPost[]) => {
-        setMessages(fetched);
-        setLoading(false);
-      });
-      return () => { if (unsub) unsub(); };
-    }, [user])
-  );
-
-  const handleOpenMessage = (msg: AdminPost) => {
-    if (user?.id && (!msg.readBy || !msg.readBy.includes(user.id))) {
-      markMessageAsRead(msg.id, user.id);
+  const handleOpenMessage = (msg: any) => {
+    if (user?.id) {
+      markAsRead(user.id, msg.id, msg.lastMessageId || msg.id); 
     }
-    router.push({ pathname: '/messages/[id]' as any, params: { id: msg.id, message: JSON.stringify(msg) } });
+    router.push({ 
+      pathname: '/messages/[id]' as any, 
+      params: { id: msg.id, message: JSON.stringify(msg) } 
+    });
   };
 
   const formatTime = (ts: any) => {
     if (!ts) return '';
-    // Support both Firestore Timestamp and JS Date
     const date = ts.toDate ? ts.toDate() : (ts.seconds ? new Date(ts.seconds * 1000) : new Date(ts));
     if (isNaN(date.getTime())) return '';
     
@@ -67,8 +116,16 @@ export default function MessagesScreen() {
 
   const displayedMessages = messages.filter(m => {
     if (activeTab === 'all') return true;
-    if (activeTab === 'admin') return m.role === 'admin';
-    if (activeTab === 'coaches') return m.role === 'coach';
+    
+    const isAdmin = m.role === 'admin' || 
+                    m.role === undefined || 
+                    m.senderName === 'Admin' || 
+                    m.type === 'admin_email';
+                    
+    const isCoach = m.role === 'coach' || m.senderName?.toLowerCase().includes('coach');
+
+    if (activeTab === 'admin') return isAdmin;
+    if (activeTab === 'coaches') return isCoach;
     return true;
   });
 
@@ -105,61 +162,24 @@ export default function MessagesScreen() {
       ) : (
         <FlatList
           data={displayedMessages}
-          extraData={refreshKey}
           keyExtractor={item => item.id}
           contentContainerStyle={styles.listContent}
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
+          windowSize={5}
           ListEmptyComponent={
             <View style={styles.empty}>
               <MaterialIcons name="mail-outline" size={60} color="#E5E7EB" />
               <Text style={styles.emptyText}>No messages yet</Text>
             </View>
           }
-          renderItem={({ item }) => {
-            const isRead = isMessageRead(item, user?.id || '');
-            const isCoach = item.role === 'coach';
-
-            return (
-              <TouchableOpacity 
-                style={[styles.messageItem, !isRead && styles.unreadMessageItem]} 
-                onPress={() => handleOpenMessage(item)}
-              >
-                <View style={styles.avatarContainer}>
-                  <View style={styles.avatarBg}>
-                    <Image source={require('../../assets/images/logo1.png')} style={styles.avatarLogo} resizeMode="contain" />
-                  </View>
-                  {!isRead && <View style={styles.unreadDot} />}
-                </View>
- 
-                <View style={styles.messageContent}>
-                  <View style={styles.messageHeader}>
-                    <View style={[styles.roleTag, isCoach ? styles.coachTag : styles.adminTag]}>
-                      <Text style={[styles.roleTagText, isCoach ? styles.coachTagText : styles.adminTagText]}>
-                        {item.role?.toUpperCase() || 'ADMIN'}
-                      </Text>
-                    </View>
-                    <Text style={[styles.messageTime, !isRead && styles.unreadTextStrong]}>
-                      {formatTime(item.lastActivity || item.createdAt || item.timestamp)}
-                    </Text>
-                  </View>
- 
-                  <View style={styles.titleRow}>
-                    <Text style={[styles.messageTitle, !isRead && styles.unreadTextStrong]} numberOfLines={1}>{item.title}</Text>
-                    {!isRead && (
-                      <View style={styles.unreadBadge}>
-                        <Text style={styles.unreadCount}>
-                          {item.unreadCount || 1}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
- 
-                  <Text style={[styles.messagePreview, !isRead && styles.unreadPreview]} numberOfLines={1}>
-                    {item.description}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            )
-          }}
+          renderItem={({ item }) => (
+            <MessageItem 
+              item={item} 
+              onPress={handleOpenMessage} 
+              formatTime={formatTime} 
+            />
+          )}
         />
       )}
     </View>

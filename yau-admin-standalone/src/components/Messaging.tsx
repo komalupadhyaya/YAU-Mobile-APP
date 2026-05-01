@@ -160,6 +160,7 @@ const Messaging: React.FC = () => {
         targetGroups,
         createdAt: serverTimestamp(),
         type: 'admin',
+        role: 'admin',
         replyCount: 0,
         unreadCount: 1,
         lastActivity: serverTimestamp()

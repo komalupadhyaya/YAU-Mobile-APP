@@ -42,41 +42,22 @@ function formatSectionDate(dateStr: string) {
   return `${DAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}`;
 }
 
+import { useScheduleStore } from '../../src/store/useScheduleStore';
+
 export default function ScheduleScreen() {
   const { user } = useUser();
   const insets = useSafeAreaInsets();
-  const [schedules, setSchedules] = useState<Schedule[]>([]);
-  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
 
-  useEffect(() => {
-    fetchScheduleData();
-  }, [user]);
-
-  const fetchScheduleData = async () => {
-    if (!user) { setLoading(false); return; }
-    try {
-      const fetched = await fetchSchedules();
-      // Filtering logic remains the same
-      setSchedules(fetched);
-    } catch (e) { } finally { setLoading(false); }
-  };
+  const schedules = useScheduleStore(state => state.schedules);
+  const loading = useScheduleStore(state => state.loading);
 
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
-
-
-  const isUpcomingDate = (d: string) => {
-    try {
-      const matchDate = new Date(d);
-      return matchDate >= today;
-    } catch (e) { return true; }
-  };
-
-  // Split real schedules into upcoming and past
-  const realUpcoming = schedules.filter(s => isUpcomingDate(s.date));
-  const realPast = schedules.filter(s => !isUpcomingDate(s.date));
+  // Split real schedules into upcoming and past using string comparison
+  const realUpcoming = schedules.filter(s => s.date > todayStr);
+  const realPast = schedules.filter(s => s.date <= todayStr);
 
   // Use real data
   const displayedItems = activeTab === 'upcoming' ? realUpcoming : realPast;
